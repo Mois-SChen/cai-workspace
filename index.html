@@ -1,0 +1,2281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAI Workspace — Computer-Assisted Interpreting Tool</title>
+<style>
+:root{
+  --bg:#0e1320; --bg2:#121a2b; --panel:#151d2f; --panel2:#1a2438; --edge:#26324c; --edge2:#31405f;
+  --text:#e9eef7; --dim:#93a0b8; --faint:#5c6a85;
+  --accent:#4da3ff; --accent2:#2f7fe0; --ok:#3ddc97; --warn:#ffb454; --err:#ff6d6d;
+  --numbg:rgba(77,163,255,.20); --numline:#4da3ff; --termbg:rgba(255,194,71,.20); --termline:#ffc247;
+  --radius:10px; --sidebar-w:308px; --font-panel:17px;
+}
+*{box-sizing:border-box; margin:0; padding:0}
+html,body{height:100%}
+body{background:var(--bg); color:var(--text); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue","PingFang SC","Microsoft YaHei",sans-serif; font-size:14px; overflow:hidden}
+button{font:inherit; color:inherit; cursor:pointer; border:1px solid var(--edge2); background:var(--panel2); border-radius:8px; padding:6px 10px; transition:background .15s,border-color .15s}
+button:hover:not(:disabled){background:#223052; border-color:#3d5080}
+button:disabled{opacity:.38; cursor:not-allowed}
+button.primary{background:var(--accent2); border-color:var(--accent2); font-weight:600}
+button.primary:hover:not(:disabled){background:#3a8ae8}
+button.danger{border-color:#5b3140}
+button.danger:hover:not(:disabled){background:#42222e; border-color:#7a3a4e}
+select,input[type=text],input[type=number]{font:inherit; color:var(--text); background:var(--bg2); border:1px solid var(--edge2); border-radius:8px; padding:6px 8px; width:100%}
+select:focus,input:focus{outline:1px solid var(--accent)}
+input[type=range]{width:100%; accent-color:var(--accent)}
+label.fld{display:block; color:var(--dim); font-size:12px; margin:8px 0 3px}
+.hint{color:var(--faint); font-size:11.5px; line-height:1.45; margin-top:5px}
+.row{display:flex; gap:6px; align-items:center}
+.row>*{flex:1}
+.row>.fix{flex:0 0 auto}
+
+/* ---------- App frame ---------- */
+#app{display:grid; grid-template-columns:var(--sidebar-w) 1fr; height:100vh; transition:grid-template-columns .2s ease}
+#app.side-collapsed{grid-template-columns:0 1fr}
+
+/* ---------- Sidebar ---------- */
+#sidebar{background:var(--bg2); border-right:1px solid var(--edge); overflow-y:auto; overflow-x:hidden; padding:12px 12px 40px; width:var(--sidebar-w)}
+#app.side-collapsed #sidebar{visibility:hidden}
+#sidebar::-webkit-scrollbar{width:8px}
+#sidebar::-webkit-scrollbar-thumb{background:var(--edge2); border-radius:4px}
+#brand{display:flex; align-items:center; gap:8px; margin-bottom:12px}
+#brand .logo{width:30px; height:30px; border-radius:8px; background:linear-gradient(135deg,var(--accent),#7c5cff); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px}
+#brand h1{font-size:15px; font-weight:650}
+#brand .sub{font-size:10.5px; color:var(--faint)}
+
+.modeSwitch{display:grid; grid-template-columns:1fr 1fr; background:var(--bg); border:1px solid var(--edge2); border-radius:10px; padding:3px; gap:3px; margin-bottom:10px}
+.modeSwitch button{border:none; background:transparent; padding:8px 4px; border-radius:7px; color:var(--dim); font-weight:600}
+.modeSwitch button.active{background:var(--accent2); color:#fff}
+#modeExplain{font-size:11.5px; color:var(--faint); line-height:1.45; margin-bottom:10px; padding:0 2px}
+
+details.group{border:1px solid var(--edge); border-radius:var(--radius); background:var(--panel); margin-bottom:8px}
+details.group>summary{list-style:none; cursor:pointer; padding:9px 12px; font-weight:600; font-size:12.5px; color:var(--text); display:flex; align-items:center; gap:7px; user-select:none}
+details.group>summary::-webkit-details-marker{display:none}
+details.group>summary .chev{margin-left:auto; color:var(--faint); font-size:10px; transition:transform .15s}
+details.group[open]>summary .chev{transform:rotate(90deg)}
+details.group .body{padding:2px 12px 12px}
+summary .ico{width:16px; text-align:center; color:var(--accent); font-size:12px}
+
+.btnGrid{display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:8px}
+.btnGrid button{padding:7px 4px; font-size:12.5px}
+.btnGrid button.wide{grid-column:1 / -1}
+.statusLine{margin-top:8px; font-size:12px; color:var(--dim); line-height:1.5; min-height:16px}
+.statusLine.ok{color:var(--ok)} .statusLine.err{color:var(--err)} .statusLine.busy{color:var(--warn)}
+
+.dropZone{border:1.5px dashed var(--edge2); border-radius:10px; padding:16px 10px; text-align:center; color:var(--dim); font-size:12px; cursor:pointer; transition:border-color .15s,background .15s; margin-top:6px}
+.dropZone:hover,.dropZone.drag{border-color:var(--accent); background:rgba(77,163,255,.06)}
+.dropZone .big{font-size:20px; display:block; margin-bottom:4px}
+.fileTag{display:flex; align-items:center; gap:8px; background:var(--bg); border:1px solid var(--edge2); border-radius:8px; padding:7px 10px; margin-top:8px; font-size:12px}
+.fileTag .nm{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text)}
+.fileTag .x{flex:0 0 auto; border:none; background:transparent; color:var(--dim); padding:0 3px; font-size:14px}
+.fileTag .x:hover{color:var(--err)}
+
+.progressWrap{margin-top:8px; display:none}
+.progressWrap.on{display:block}
+.progressBar{height:6px; border-radius:3px; background:var(--bg); border:1px solid var(--edge2); overflow:hidden}
+.progressBar>div{height:100%; width:0%; background:linear-gradient(90deg,var(--accent2),var(--accent)); transition:width .25s}
+.progressTxt{font-size:11px; color:var(--dim); margin-top:4px}
+
+.toggleRow{display:flex; align-items:center; justify-content:space-between; margin-top:9px; font-size:12.5px; color:var(--dim)}
+.switch{position:relative; width:34px; height:19px; flex:0 0 auto}
+.switch input{opacity:0; width:0; height:0}
+.switch .tr{position:absolute; inset:0; background:var(--bg); border:1px solid var(--edge2); border-radius:10px; transition:.15s}
+.switch .tr::before{content:""; position:absolute; width:13px; height:13px; left:2px; top:2px; border-radius:50%; background:var(--dim); transition:.15s}
+.switch input:checked+.tr{background:var(--accent2); border-color:var(--accent2)}
+.switch input:checked+.tr::before{transform:translateX(15px); background:#fff}
+
+/* ---------- Main stage ---------- */
+#stage{display:flex; flex-direction:column; height:100vh; min-width:0; background:var(--bg)}
+#stage:fullscreen{background:var(--bg)}
+
+#topbar{display:flex; align-items:center; gap:10px; padding:8px 14px; border-bottom:1px solid var(--edge); background:var(--bg2); flex:0 0 auto; min-height:44px}
+#sideToggle{flex:0 0 auto; padding:5px 9px; font-size:13px}
+#modeBadge{flex:0 0 auto; font-size:11px; font-weight:700; letter-spacing:.06em; padding:4px 10px; border-radius:20px; text-transform:uppercase}
+#modeBadge.live{background:rgba(61,220,151,.15); color:var(--ok); border:1px solid rgba(61,220,151,.4)}
+#modeBadge.playback{background:rgba(77,163,255,.14); color:var(--accent); border:1px solid rgba(77,163,255,.4)}
+#chips{display:flex; gap:6px; flex:1; flex-wrap:wrap; min-width:0}
+.chip{font-size:11px; padding:3px 9px; border-radius:20px; border:1px solid var(--edge2); color:var(--dim); background:var(--panel); white-space:nowrap; display:inline-flex; align-items:center; gap:5px}
+.chip .dot{width:7px; height:7px; border-radius:50%; background:var(--faint)}
+.chip.ok{color:var(--ok); border-color:rgba(61,220,151,.4)} .chip.ok .dot{background:var(--ok)}
+.chip.busy{color:var(--warn); border-color:rgba(255,180,84,.4)} .chip.busy .dot{background:var(--warn); animation:pulse 1s infinite}
+.chip.err{color:var(--err); border-color:rgba(255,109,109,.45)} .chip.err .dot{background:var(--err)}
+.chip.info{color:var(--accent); border-color:rgba(77,163,255,.4)} .chip.info .dot{background:var(--accent)}
+@keyframes pulse{50%{opacity:.35}}
+#fsBtn{flex:0 0 auto; font-size:12px}
+
+#banner{display:none; margin:10px 14px 0; padding:10px 14px; border-radius:10px; background:rgba(255,109,109,.1); border:1px solid rgba(255,109,109,.4); color:#ffb3b3; font-size:13px; line-height:1.5; align-items:flex-start; gap:10px}
+#banner.on{display:flex}
+#banner.warn{background:rgba(255,180,84,.08); border-color:rgba(255,180,84,.4); color:#ffd9a3}
+#banner .bx{flex:0 0 auto; border:none; background:transparent; color:inherit; font-size:15px; padding:0 2px}
+#banner b{display:block; margin-bottom:2px}
+
+/* ---------- Source area ---------- */
+#sourceArea{flex:0 0 auto; margin:10px 14px 0; border:1px solid var(--edge); border-radius:var(--radius); background:var(--panel); position:relative; overflow:hidden; height:200px; transition:height .2s}
+#sourceArea.video-mode{height:min(315px,34vh)}
+#sourceArea.compact{height:96px}
+#player{width:100%; height:100%; display:none; background:#000; object-fit:contain}
+#liveVideo{width:100%; height:100%; display:none; background:#000; object-fit:contain}
+#audioBox{display:none; height:100%; flex-direction:column; padding:10px 14px 8px; gap:6px}
+#audioBox.on{display:flex}
+#audioBox .abTop{display:flex; align-items:center; gap:10px; font-size:12px; color:var(--dim)}
+#audioBox .abTop .srcName{color:var(--text); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+#lvlWrap{width:130px; height:8px; background:var(--bg); border:1px solid var(--edge2); border-radius:4px; overflow:hidden; flex:0 0 auto}
+#lvlBar{height:100%; width:0%; background:linear-gradient(90deg,var(--ok),var(--warn)); transition:width .08s}
+#inputDot{width:9px; height:9px; border-radius:50%; background:var(--faint); flex:0 0 auto}
+#inputDot.on{background:var(--ok); box-shadow:0 0 8px rgba(61,220,151,.7)}
+#scopeCanvas,#waveCanvas{width:100%; flex:1; min-height:0; border-radius:6px; background:var(--bg); display:none}
+#scopeCanvas.on,#waveCanvas.on{display:block}
+#waveCanvas{cursor:pointer}
+#srcPlaceholder{position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; color:var(--faint); font-size:13px; pointer-events:none}
+#srcPlaceholder .big{font-size:26px}
+#srcPlaceholder.off{display:none}
+#capBadge{position:absolute; top:8px; left:10px; z-index:5; display:none; font-size:11px; padding:3px 9px; border-radius:14px; background:rgba(10,14,24,.78); border:1px solid var(--edge2)}
+#capBadge.on{display:inline-flex; gap:5px; align-items:center}
+#capBadge.good{color:var(--ok)} #capBadge.bad{color:var(--err)}
+#fsMini{position:absolute; top:8px; right:10px; z-index:5; font-size:11px; padding:3px 9px; background:rgba(10,14,24,.78)}
+#mediaCtl{position:absolute; bottom:8px; right:10px; z-index:5; display:none; gap:5px}
+#mediaCtl.on{display:flex}
+#mediaCtl button{font-size:11px; padding:3px 9px; background:rgba(10,14,24,.85)}
+
+/* ---------- Support strip ---------- */
+#supportStrip{flex:0 0 auto; margin:8px 14px 0; border:1px solid var(--edge); border-radius:var(--radius); background:var(--panel); padding:7px 12px; display:flex; align-items:center; gap:10px; min-height:44px}
+#supportStrip .ttl{flex:0 0 auto; font-size:11px; font-weight:700; color:var(--dim); letter-spacing:.05em; text-transform:uppercase}
+#supportChips{display:flex; gap:6px; overflow-x:auto; flex:1; padding:2px 0; scrollbar-width:thin}
+#supportChips::-webkit-scrollbar{height:5px}
+#supportChips::-webkit-scrollbar-thumb{background:var(--edge2); border-radius:3px}
+#supportChips .empty{color:var(--faint); font-size:12px}
+.sChip{flex:0 0 auto; font-size:12.5px; padding:4px 10px; border-radius:8px; cursor:pointer; border:1px solid; white-space:nowrap}
+.sChip.num{background:var(--numbg); border-color:rgba(77,163,255,.45); color:#bcd9ff}
+.sChip.term{background:var(--termbg); border-color:rgba(255,194,71,.45); color:#ffe1a8}
+.sChip:hover{filter:brightness(1.25)}
+
+/* ---------- Text panels ---------- */
+#textPanels{flex:1; min-height:0; margin:8px 14px 12px; border:1px solid var(--edge); border-radius:var(--radius); background:var(--panel); display:flex; flex-direction:column; overflow:hidden; position:relative}
+#panelHeads{flex:0 0 auto; display:grid; grid-template-columns:1fr 1fr; border-bottom:1px solid var(--edge2); background:var(--panel2); z-index:4}
+#panelHeads .ph{padding:8px 14px; font-size:12px; font-weight:700; letter-spacing:.04em; color:var(--dim); display:flex; align-items:center; gap:7px}
+#panelHeads .ph:first-child{border-right:1px solid var(--edge2)}
+#panelHeads .ph .lg{color:var(--text)}
+#panelHeads .ph .tag{font-size:9.5px; padding:1px 7px; border-radius:9px; border:1px solid var(--edge2); color:var(--faint); font-weight:600}
+#segScroll{flex:1; overflow-y:auto; overflow-x:hidden; scroll-behavior:smooth; padding:6px 0 14px; font-size:var(--font-panel)}
+#segScroll::-webkit-scrollbar{width:9px}
+#segScroll::-webkit-scrollbar-thumb{background:var(--edge2); border-radius:4px}
+#segEmpty{color:var(--faint); text-align:center; padding:40px 20px; font-size:13px; line-height:1.7}
+.segRow{display:grid; grid-template-columns:1fr 1fr; border-bottom:1px solid rgba(38,50,76,.5)}
+.segRow.future{display:none}
+.segRow .cell{padding:9px 14px 10px; line-height:1.65; min-width:0; overflow-wrap:break-word}
+.segRow .cell.src{border-right:1px solid var(--edge2)}
+.segRow .stamp{display:block; font-size:10px; color:var(--faint); font-family:ui-monospace,Menlo,Consolas,monospace; margin-bottom:2px; user-select:none}
+.segRow.recent{background:rgba(77,163,255,.055)}
+.segRow.partial .segtext{color:var(--dim); font-style:italic}
+.segRow.partial .stamp::after{content:" · partial"; color:var(--warn)}
+.segtext .tok{transition:opacity .2s}
+.segtext .tok.hid{opacity:0}
+.segtext mark{background:transparent; color:inherit; border-radius:4px; padding:0 2px}
+#segScroll.hl .segtext mark.num{background:var(--numbg); box-shadow:inset 0 -2px 0 var(--numline)}
+#segScroll.hl .segtext mark.term{background:var(--termbg); box-shadow:inset 0 -2px 0 var(--termline)}
+#segScroll.mode-asr .cell.mt .segtext{visibility:hidden}
+#segScroll.mode-mt .cell.src .segtext{visibility:hidden}
+#segScroll.mode-num .segtext .tok,#segScroll.mode-num .segtext mark.term{opacity:.10}
+#segScroll.mode-num .segtext mark.num{opacity:1}
+#segScroll.mode-term .segtext .tok,#segScroll.mode-term .segtext mark.num{opacity:.10}
+#segScroll.mode-term .segtext mark.term{opacity:1}
+#segScroll.mode-numterm .segtext .tok{opacity:.10}
+#segScroll.mode-numterm .segtext mark{opacity:1}
+#segScroll.mode-num .segtext .tok.hid,#segScroll.mode-term .segtext .tok.hid,#segScroll.mode-numterm .segtext .tok.hid{opacity:0}
+#resumeScroll{position:absolute; bottom:14px; left:50%; transform:translateX(-50%); z-index:6; display:none; font-size:12px; padding:5px 14px; border-radius:16px; background:var(--accent2); border-color:var(--accent2); font-weight:600; box-shadow:0 4px 14px rgba(0,0,0,.4)}
+#resumeScroll.on{display:block}
+
+/* ---------- Fullscreen layout: sidebar + toolbar hidden, source on top,
+     Numbers & Terms strip and ASR/MT panels fill the rest ---------- */
+#stage:fullscreen #topbar{display:none}
+#stage:fullscreen #sourceArea{height:12vh; margin-top:10px}
+#stage:fullscreen #sourceArea.video-mode,#stage:fullscreen #sourceArea.fs-video{height:33vh}
+#stage:fullscreen #segScroll{font-size:calc(var(--font-panel) * 1.15)}
+#stage:fullscreen #fsMini{font-size:12px; padding:5px 12px}
+
+/* ---------- Modal ---------- */
+#modalBack{position:fixed; inset:0; background:rgba(5,8,15,.7); z-index:50; display:none; align-items:center; justify-content:center; padding:20px}
+#modalBack.on{display:flex}
+#modal{background:var(--bg2); border:1px solid var(--edge2); border-radius:14px; max-width:680px; width:100%; max-height:84vh; display:flex; flex-direction:column; box-shadow:0 20px 60px rgba(0,0,0,.5)}
+#modal header{display:flex; align-items:center; padding:14px 20px; border-bottom:1px solid var(--edge); font-weight:700; font-size:15px}
+#modal header button{margin-left:auto; border:none; background:transparent; font-size:18px; color:var(--dim); padding:0 4px}
+#modal .mBody{padding:16px 20px 22px; overflow-y:auto; font-size:13px; line-height:1.65; color:var(--dim)}
+#modal .mBody h3{color:var(--text); font-size:13.5px; margin:16px 0 6px}
+#modal .mBody h3:first-child{margin-top:0}
+#modal .mBody code{background:var(--bg); border:1px solid var(--edge); padding:1px 6px; border-radius:5px; font-size:12px; color:#bcd9ff}
+#modal .mBody ul{margin:4px 0 8px 18px}
+#modal .mBody li{margin:3px 0}
+#modal .mBody table{border-collapse:collapse; margin:6px 0; width:100%; font-size:12px}
+#modal .mBody td,#modal .mBody th{border:1px solid var(--edge2); padding:5px 9px; text-align:left}
+#modal .mBody th{color:var(--text); background:var(--panel)}
+.kbd{border:1px solid var(--edge2); border-bottom-width:2px; border-radius:5px; padding:0 6px; font-size:11px; background:var(--bg)}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ================= SIDEBAR ================= -->
+<aside id="sidebar">
+  <div id="brand">
+    <div class="logo">CAI</div>
+    <div><h1>CAI Workspace</h1><div class="sub">Computer-Assisted Interpreting</div></div>
+  </div>
+
+  <div class="modeSwitch">
+    <button id="modeLiveBtn" class="active">● Live</button>
+    <button id="modePlaybackBtn">▶ Playback</button>
+  </div>
+  <div id="modeExplain">Live mode processes a real-time audio stream (microphone, input device, tab/screen audio) with the system's actual ASR/MT delay.</div>
+
+  <!-- Languages -->
+  <details class="group" open id="grpLang">
+    <summary><span class="ico">🌐</span>Languages<span class="chev">▶</span></summary>
+    <div class="body">
+      <label class="fld" for="srcLang">Source language — the language being spoken / played</label>
+      <select id="srcLang"></select>
+      <label class="fld" for="tgtLang">Target language — the language support text is translated into</label>
+      <select id="tgtLang"></select>
+      <div class="btnGrid"><button id="swapLang" class="wide">⇄ Swap direction</button></div>
+      <div class="hint" id="langHint"></div>
+    </div>
+  </details>
+
+  <!-- Live input source -->
+  <details class="group" open id="grpLive">
+    <summary><span class="ico">🎙</span>Input source (live)<span class="chev">▶</span></summary>
+    <div class="body">
+      <label class="fld" for="liveSource">Live input source</label>
+      <select id="liveSource"></select>
+      <div class="btnGrid">
+        <button id="refreshDevs">↻ Refresh devices</button>
+        <button id="captureGuideBtn">? Capture guide</button>
+        <button id="startCap" class="primary">Start capture</button>
+        <button id="pauseCap">Pause</button>
+        <button id="resumeCap">Resume</button>
+        <button id="stopCap" class="danger">Stop capture</button>
+        <button id="clearLive" class="wide danger">Clear live session</button>
+      </div>
+      <div class="statusLine" id="capStatus">No capture running.</div>
+      <div class="hint">To transcribe sound playing on this computer, choose <b>Computer audio</b> — in the share dialog pick “Entire screen” and tick <b>“Also share system audio”</b> (Windows/ChromeOS). On macOS Chrome cannot capture system audio: use <b>Browser tab</b> capture for tab sound, or a virtual audio device (BlackHole) — see the capture guide.</div>
+    </div>
+  </details>
+
+  <!-- Playback media -->
+  <details class="group" id="grpMedia">
+    <summary><span class="ico">🎬</span>Media file (playback)<span class="chev">▶</span></summary>
+    <div class="body">
+      <div class="dropZone" id="dropZone"><span class="big">⬆</span>Drop a video/audio file here<br>or click to browse</div>
+      <input type="file" id="mediaFile" accept="video/*,audio/*,.mkv,.avi,.flac,.ogg,.m4a" style="display:none">
+      <div id="mediaTag" class="fileTag" style="display:none"><span>🎞</span><span class="nm"></span><button class="x" id="clearMedia" title="Clear media">✕</button></div>
+      <div class="statusLine" id="mediaStatus"></div>
+      <div class="hint">Video: MP4, WebM, MOV (browser-decodable). Audio: MP3, WAV, M4A, AAC, FLAC, OGG. AVI/MKV usually cannot be decoded by browsers — convert to MP4 first.</div>
+    </div>
+  </details>
+
+  <!-- Engines -->
+  <details class="group" open id="grpEngines">
+    <summary><span class="ico">⚙</span>ASR &amp; MT engines<span class="chev">▶</span></summary>
+    <div class="body">
+      <label class="fld" for="asrEngine">ASR engine (speech recognition)</label>
+      <select id="asrEngine">
+        <option value="webspeech">Browser Speech (Web Speech API) — live mic, free</option>
+        <option value="whisper">Whisper (in-browser, local) — all sources + files, free</option>
+        <option value="openai-asr">OpenAI Whisper API — API key</option>
+        <option value="groq-asr">Groq Whisper — API key, fast, free tier</option>
+        <option value="sf-asr">SiliconFlow SenseVoice — API key, strong Chinese</option>
+        <option value="custom-asr">Custom OpenAI-compatible ASR — API key</option>
+      </select>
+      <div id="asrKeyRow" style="display:none">
+        <label class="fld">API key — <span id="asrKeyName"></span></label>
+        <input type="password" id="asrKey" placeholder="Paste API key" autocomplete="off">
+        <label class="fld">Model</label>
+        <input type="text" id="asrModel" autocomplete="off">
+        <label class="fld">Base URL (OpenAI-compatible)</label>
+        <input type="text" id="asrBase" placeholder="https://host/v1" autocomplete="off">
+      </div>
+      <div id="whisperModelRow">
+        <label class="fld" for="whisperModel">Whisper model (first use downloads it, then cached)</label>
+        <select id="whisperModel">
+          <option value="tiny">tiny — fastest, lower accuracy (~50 MB)</option>
+          <option value="base" selected>base — balanced (~80 MB)</option>
+          <option value="small">small — most accurate, slower (~250 MB)</option>
+        </select>
+      </div>
+      <label class="fld" for="mtEngine">MT engine (machine translation)</label>
+      <select id="mtEngine">
+        <option value="google">Google Translate (free)</option>
+        <option value="mymemory">MyMemory (free)</option>
+        <option value="hunyuan">腾讯混元 Tencent Hunyuan — API key</option>
+        <option value="deepseek">DeepSeek — API key</option>
+        <option value="qwen">通义千问 Qwen — API key</option>
+        <option value="glm">智谱 GLM — API key</option>
+        <option value="openai">OpenAI GPT — API key</option>
+        <option value="custom-mt">Custom OpenAI-compatible — API key</option>
+      </select>
+      <div id="mtKeyRow" style="display:none">
+        <label class="fld">API key — <span id="mtKeyName"></span></label>
+        <input type="password" id="mtKey" placeholder="Paste API key" autocomplete="off">
+        <label class="fld">Model</label>
+        <input type="text" id="mtModel" autocomplete="off">
+        <label class="fld">Base URL (OpenAI-compatible)</label>
+        <input type="text" id="mtBase" placeholder="https://host/v1" autocomplete="off">
+        <div class="hint">LLM-based MT: your terminology list is injected into the translation prompt as hard constraints.</div>
+      </div>
+      <div class="hint">API keys are saved only in this browser (never in exported files) and sent only to the selected provider.</div>
+      <div class="btnGrid"><button id="initEngines" class="primary wide">Initialize engines</button></div>
+      <div class="statusLine" id="initStatus">Engines not initialized.</div>
+    </div>
+  </details>
+
+  <!-- Terminology -->
+  <details class="group" id="grpTerms">
+    <summary><span class="ico">📚</span>Terminology (optional)<span class="chev">▶</span></summary>
+    <div class="body">
+      <div class="dropZone" id="termDrop"><span class="big">📄</span>Upload bilingual term list<br>TXT, XLS or XLSX</div>
+      <input type="file" id="termFile" accept=".txt,.csv,.tsv,.xls,.xlsx" style="display:none">
+      <div id="termTag" class="fileTag" style="display:none"><span>📚</span><span class="nm"></span><button class="x" id="clearTerms" title="Clear terminology">✕</button></div>
+      <div class="statusLine" id="termStatus">No terminology loaded.</div>
+      <div class="btnGrid"><button id="sampleTerms" class="wide">⬇ Download sample file</button></div>
+      <div class="hint"><b>Format:</b> one term pair per line/row — source term, then target term, separated by a Tab, comma, or in two spreadsheet columns. Example: <code>carbon neutrality&nbsp;→&nbsp;碳中和</code></div>
+    </div>
+  </details>
+
+  <!-- Processing -->
+  <details class="group" open id="grpProc">
+    <summary><span class="ico">▶</span>Processing<span class="chev">▶</span></summary>
+    <div class="body">
+      <div class="btnGrid">
+        <button id="startProc" class="primary wide">Start ASR + MT processing</button>
+        <button id="stopProc" class="danger">Stop processing</button>
+        <button id="restartProc">Restart / Reprocess</button>
+      </div>
+      <div class="statusLine" id="procStatus">Not processing.</div>
+      <div class="progressWrap" id="procProgWrap">
+        <div class="progressBar"><div id="procProgBar"></div></div>
+        <div class="progressTxt" id="procProgTxt"></div>
+      </div>
+    </div>
+  </details>
+
+  <!-- Display -->
+  <details class="group" id="grpDisplay">
+    <summary><span class="ico">🖥</span>Display<span class="chev">▶</span></summary>
+    <div class="body">
+      <label class="fld" for="dispMode">Display mode</label>
+      <select id="dispMode">
+        <option value="both">ASR + MT</option>
+        <option value="asr">ASR only</option>
+        <option value="mt">MT only</option>
+        <option value="num">Numbers only</option>
+        <option value="term">Terminology only</option>
+        <option value="numterm">Numbers + terminology only</option>
+      </select>
+      <label class="fld" for="incrMode">Incremental display</label>
+      <select id="incrMode">
+        <option value="word" selected>By word — streams like live ASR</option>
+        <option value="phrase">By phrase</option>
+        <option value="sentence">Full sentence — appears when finalized</option>
+      </select>
+      <div class="toggleRow"><span>Number / terminology highlights</span>
+        <label class="switch"><input type="checkbox" id="hlToggle" checked><span class="tr"></span></label></div>
+      <div class="toggleRow"><span>Auto-scroll</span>
+        <label class="switch"><input type="checkbox" id="autoScrollToggle" checked><span class="tr"></span></label></div>
+      <label class="fld">Font size: <span id="fontVal">17</span> px</label>
+      <input type="range" id="fontSize" min="13" max="30" value="17">
+      <label class="fld" for="delaySlider">Subtitle delay (playback only): <span id="delayVal">0.0</span> s</label>
+      <input type="range" id="delaySlider" min="0" max="10" step="0.5" value="0">
+      <div class="hint" id="delayHint">Fixed offset that shifts all ASR/MT display times later, to simulate live ASR/MT latency. Unavailable in live mode — live delay is the real processing delay.</div>
+    </div>
+  </details>
+
+  <!-- Session -->
+  <details class="group" id="grpSession">
+    <summary><span class="ico">💾</span>Session &amp; export<span class="chev">▶</span></summary>
+    <div class="body">
+      <div class="btnGrid">
+        <button id="clearOutput">Clear output</button>
+        <button id="newSession">New session</button>
+        <button id="exportJson" class="wide">⬇ Export session log (JSON)</button>
+        <button id="exportCsv" class="wide">⬇ Export segments (CSV)</button>
+      </div>
+      <div class="statusLine" id="sessionStatus"></div>
+    </div>
+  </details>
+
+  <!-- Diagnostics -->
+  <details class="group" id="grpDiag">
+    <summary><span class="ico">🩺</span>Diagnostics<span class="chev">▶</span></summary>
+    <div class="body">
+      <div id="diagLog" style="font-family:ui-monospace,Menlo,Consolas,monospace; font-size:10.5px; line-height:1.5; max-height:220px; overflow-y:auto; background:var(--bg); border:1px solid var(--edge); border-radius:8px; padding:8px; color:var(--dim); word-break:break-word"></div>
+      <div class="btnGrid"><button id="copyDiag" class="wide">Copy diagnostics</button></div>
+      <div class="hint">A live log of what the tool is doing. If something seems stuck, open this panel — it shows which step failed.</div>
+    </div>
+  </details>
+
+  <div class="btnGrid"><button id="helpBtn" class="wide">ℹ Help &amp; documentation</button></div>
+</aside>
+
+<!-- ================= MAIN STAGE ================= -->
+<main id="stage">
+  <div id="topbar">
+    <button id="sideToggle" title="Collapse / expand sidebar">☰</button>
+    <span id="modeBadge" class="live">Live mode</span>
+    <div id="chips"></div>
+    <button id="fsBtn">⛶ Fullscreen</button>
+  </div>
+
+  <div id="banner"><div style="flex:1"><b id="bannerTitle"></b><span id="bannerMsg"></span></div><button class="bx" id="bannerClose">✕</button></div>
+
+  <section id="sourceArea">
+    <video id="player" controls playsinline controlslist="nofullscreen noremoteplayback" disablepictureinpicture></video>
+    <video id="liveVideo" muted playsinline></video>
+    <div id="audioBox">
+      <div class="abTop">
+        <span id="inputDot"></span>
+        <span class="srcName" id="audioSrcName">No source</span>
+        <div id="lvlWrap"><div id="lvlBar"></div></div>
+        <span id="audioTime" style="font-family:ui-monospace,Menlo,monospace; font-size:11px"></span>
+      </div>
+      <canvas id="scopeCanvas"></canvas>
+      <canvas id="waveCanvas" title="Click to seek"></canvas>
+    </div>
+    <div id="srcPlaceholder"><span class="big">🎧</span><span id="placeholderTxt">Select a live input source and start capture, or switch to Playback mode to upload a file.</span></div>
+    <span id="capBadge"><span class="dot"></span><span id="capBadgeTxt"></span></span>
+    <button id="fsMini" title="Fullscreen workspace">⛶</button>
+    <div id="mediaCtl">
+      <button id="replayBtn" title="Replay from start">⟲ Replay</button>
+    </div>
+  </section>
+
+  <section id="supportStrip">
+    <span class="ttl">Numbers &amp; Terms</span>
+    <div id="supportChips"><span class="empty">Detected numbers and terminology matches will appear here.</span></div>
+  </section>
+
+  <section id="textPanels">
+    <div id="panelHeads">
+      <div class="ph"><span class="tag">SOURCE</span><span>ASR · <span class="lg" id="srcLangLabel">English</span></span></div>
+      <div class="ph"><span class="tag">TARGET</span><span>MT · <span class="lg" id="tgtLangLabel">Chinese</span></span></div>
+    </div>
+    <div id="segScroll" class="hl mode-both">
+      <div id="segEmpty">No output yet.<br>Initialize the engines, then start capture (live) or upload &amp; process a file (playback).</div>
+    </div>
+    <button id="resumeScroll">▼ Resume auto-scroll</button>
+  </section>
+</main>
+</div>
+
+<!-- ================= MODAL ================= -->
+<div id="modalBack"><div id="modal">
+  <header><span id="modalTitle">Help</span><button id="modalClose">✕</button></header>
+  <div class="mBody" id="modalBody"></div>
+</div></div>
+
+<script>
+'use strict';
+/* =====================================================================
+   CAI Workspace — Computer-Assisted Interpreting tool
+   Single-file web app. Two operating modes:
+     • LIVE mode      — real-time audio streams, real processing delay
+     • PLAYBACK mode  — uploaded media, display synced to media timeline
+   ===================================================================== */
+
+/* ---------------- Utilities ---------------- */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = t => String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+const fmtT = s => { s=Math.max(0,s); const m=Math.floor(s/60), ss=Math.floor(s%60); return String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0'); };
+const round3 = v => (v==null||isNaN(v)) ? null : Math.round(v*1000)/1000;
+const uid = (()=>{ let n=0; return ()=>(++n); })();
+
+/* ---------------- Languages ---------------- */
+const LANGS = [
+  { code:'en', name:'English',        bcp:'en-US', g:'en',    whisper:'english' },
+  { code:'zh', name:'Chinese (中文)', bcp:'zh-CN', g:'zh-CN', whisper:'chinese' }
+  // To add a language later: add one entry here (code, display name,
+  // BCP-47 tag for Web Speech, Google/MyMemory code, Whisper language name).
+];
+const langBy = c => LANGS.find(l=>l.code===c);
+
+/* ---------------- Global state ---------------- */
+const S = {
+  mode: 'live',                       // 'live' | 'playback'
+  srcLang: 'en', tgtLang: 'zh',
+  asrEngine: 'webspeech', mtEngine: 'google', whisperModel: 'base',
+  ready: { asr:false, mt:false },
+  initializing: false,
+
+  // live capture
+  cap: { active:false, paused:false, stream:null, ctx:null, analyser:null, proc:null,
+         kind:null, label:'', hasAudio:false, lastVoice:0, reconnecting:false },
+  processing: false,                  // live ASR+MT running
+  liveClock0: null,                   // performance.now() at session start
+
+  // playback
+  media: { file:null, url:null, isVideo:false, duration:0, loaded:false,
+           processed:false, processing:false, delay:0, buffer:null, seeking:false },
+
+  segments: [],                       // segment records (see newSegment)
+  terms: [],                          // {src,tgt} sorted longest-first
+  termFileName: null,
+  termMTCache: {},                    // machine translation of each source term (for glossary substitution)
+  events: [],
+  sessionStart: new Date(),
+  display: { mode:'both', incr:'word', autoscroll:true, hl:true },
+  chipSeen: new Set(),
+  latWindow: []                       // recent live ASR latencies
+};
+
+/* ---------------- Element refs ---------------- */
+const E = {};
+['app','sidebar','sideToggle','modeBadge','chips','fsBtn','banner','bannerTitle','bannerMsg','bannerClose',
+ 'sourceArea','player','liveVideo','audioBox','audioSrcName','lvlBar','inputDot','scopeCanvas','waveCanvas',
+ 'srcPlaceholder','placeholderTxt','capBadge','capBadgeTxt','fsMini','mediaCtl','replayBtn','audioTime',
+ 'supportChips','segScroll','segEmpty','resumeScroll','panelHeads','srcLangLabel','tgtLangLabel',
+ 'modeLiveBtn','modePlaybackBtn','modeExplain','srcLang','tgtLang','swapLang','langHint',
+ 'grpLive','grpMedia','liveSource','refreshDevs','captureGuideBtn','startCap','pauseCap','resumeCap','stopCap','clearLive','capStatus',
+ 'dropZone','mediaFile','mediaTag','clearMedia','mediaStatus',
+ 'asrEngine','whisperModel','whisperModelRow','mtEngine','initEngines','initStatus',
+ 'asrKeyRow','asrKeyName','asrKey','asrModel','asrBase','mtKeyRow','mtKeyName','mtKey','mtModel','mtBase',
+ 'termDrop','termFile','termTag','clearTerms','termStatus','sampleTerms',
+ 'startProc','stopProc','restartProc','procStatus','procProgWrap','procProgBar','procProgTxt',
+ 'dispMode','incrMode','hlToggle','autoScrollToggle','fontSize','fontVal','delaySlider','delayVal','delayHint',
+ 'clearOutput','newSession','exportJson','exportCsv','sessionStatus','helpBtn','diagLog','copyDiag',
+ 'modalBack','modal','modalTitle','modalBody','modalClose'
+].forEach(id => E[id] = document.getElementById(id));
+
+/* ---------------- Event / status helpers ---------------- */
+function logEvent(name, extra){ S.events.push(Object.assign({ t: nowT(), wall:new Date().toISOString(), event:name }, extra||{})); }
+function nowT(){ // current position on the active timeline (seconds)
+  if (S.mode==='live') return S.liveClock0==null ? 0 : (performance.now()-S.liveClock0)/1000;
+  return E.player.currentTime || 0;
+}
+function liveT(){ return S.liveClock0==null ? 0 : (performance.now()-S.liveClock0)/1000; }
+
+let bannerTimer=null;
+function showBanner(title,msg,kind){
+  E.banner.className = 'on' + (kind==='warn'?' warn':'');
+  E.bannerTitle.textContent = title;
+  E.bannerMsg.textContent = msg;
+  clearTimeout(bannerTimer);
+  if (kind==='warn') bannerTimer=setTimeout(hideBanner, 12000);
+}
+function hideBanner(){ E.banner.className=''; }
+E.bannerClose.onclick = hideBanner;
+
+function setStatus(el, txt, kind){ el.textContent = txt; el.className = 'statusLine' + (kind?' '+kind:''); }
+
+/* ---------------- diagnostics ---------------- */
+const DIAG=[];
+function diag(msg,kind){
+  const line='['+new Date().toTimeString().slice(0,8)+'] '+msg;
+  DIAG.push(line); if (DIAG.length>120) DIAG.shift();
+  if (E.diagLog){
+    const div=document.createElement('div');
+    if (kind==='err') div.style.color='var(--err)';
+    div.textContent=line;
+    E.diagLog.appendChild(div);
+    while (E.diagLog.children.length>120) E.diagLog.removeChild(E.diagLog.firstChild);
+    E.diagLog.scrollTop=E.diagLog.scrollHeight;
+  }
+  try{ console.log('[CAI]',msg); }catch(e){}
+}
+window.addEventListener('error',e=>diag('ERROR: '+(e.message||'script error')+(e.lineno?(' @line '+e.lineno):''),'err'));
+window.addEventListener('unhandledrejection',e=>diag('ASYNC ERROR: '+String((e.reason&&e.reason.message)||e.reason).slice(0,160),'err'));
+E.copyDiag.onclick=()=>{
+  const txt=DIAG.join('\n');
+  (navigator.clipboard?navigator.clipboard.writeText(txt):Promise.reject()).then(
+    ()=>setStatus(E.sessionStatus,'Diagnostics copied to clipboard.','ok'),
+    ()=>{ downloadBlob(new Blob([txt],{type:'text/plain'}),'cai-diagnostics.txt'); });
+};
+
+/* ---------------- Status chips ---------------- */
+function refreshChips(){
+  const c=[];
+  if (S.mode==='live'){
+    if (S.cap.active){
+      const voiced = (performance.now()-S.cap.lastVoice) < 600;
+      c.push({t:'Input detected', k: voiced?'ok':''});
+      if (S.cap.paused) c.push({t:'Paused', k:'busy'});
+      else if (S.cap.reconnecting) c.push({t:'Reconnecting', k:'busy'});
+      else c.push({t:'Listening', k:'ok'});
+    } else c.push({t:'Stopped', k:''});
+    if (S.processing) c.push({t:'Processing', k:'busy'});
+    const lat = avgLatency();
+    if (lat!=null && lat>3.5) c.push({t:'Latency high ('+lat.toFixed(1)+' s)', k:'err'});
+    else if (lat!=null) c.push({t:'Latency '+lat.toFixed(1)+' s', k:'info'});
+  } else {
+    if (!S.media.loaded) c.push({t:'No media', k:''});
+    else {
+      c.push({t:'Media loaded', k:'info'});
+      if (S.media.processing) c.push({t:(S.media.wasProcessed?'Reprocessing':'Processing media')+(S.media.progressPct!=null?' '+Math.round(S.media.progressPct)+'%':''), k:'busy'});
+      else if (S.media.processed){
+        c.push({t:'Processing complete', k:'ok'});
+        c.push({t:'Synchronized', k:'ok'});
+      }
+      if (S.media.seeking) c.push({t:'Seeking', k:'busy'});
+      else if (E.player.ended) c.push({t:'Ended', k:''});
+      else if (!E.player.paused) c.push({t:'Playing', k:'ok'});
+      else c.push({t:'Paused', k:''});
+      if (S.media.delay>0) c.push({t:'Subtitle delay +'+S.media.delay.toFixed(1)+' s', k:'info'});
+    }
+  }
+  E.chips.innerHTML = c.map(x=>'<span class="chip '+x.k+'"><span class="dot"></span>'+esc(x.t)+'</span>').join('');
+}
+function avgLatency(){
+  if (!S.latWindow.length) return null;
+  const w=S.latWindow.slice(-3);
+  return w.reduce((a,b)=>a+b,0)/w.length;
+}
+setInterval(refreshChips, 700);
+
+/* =====================================================================
+   NUMBER DETECTION
+   Arabic numerals, spelled-out numbers (EN + ZH), percentages, dates,
+   years, currencies, large numbers, decimals, ranges.
+   ===================================================================== */
+const EN_NUMWORD = '(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand|million|billion|trillion|dozen|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth|twelfth|twentieth|thirtieth|fiftieth|hundredth|thousandth|millionth)';
+const ZH_BLACKLIST = new Set(['万一','一一']);
+const NUM_PATTERNS = [
+  // currency
+  /(?:[$€£¥₩]|USD|EUR|GBP|CNY|RMB|JPY|AUD|HKD)\s?\d[\d,，]*(?:[.．]\d+)?(?:\s?(?:million|billion|trillion|万|亿))?/gi,
+  // percentages
+  /\d[\d,，]*(?:[.．]\d+)?\s?(?:%|％|percent|per cent|个百分点)/gi,
+  /百分之[零一二两三四五六七八九十点百]+/g,
+  // dates
+  /\b(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug(?:ust)?|Sep(?:t|tember)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s+\d{1,2}(?:st|nd|rd|th)?(?:\s*,?\s*\d{4})?\b/g,
+  /\d{2,4}\s?年(?:\d{1,2}\s?月)?(?:\d{1,2}\s?[日号])?|\d{1,2}\s?月\d{1,2}\s?[日号]|\d{1,2}\s?月份?/g,
+  // ranges
+  /\d[\d,，]*(?:[.．]\d+)?\s*(?:[-–—~〜]|到|至)\s*\d[\d,，]*(?:[.．]\d+)?(?:\s?(?:%|％|million|billion|万|亿))?/g,
+  // plain / large / decimal digits (incl. years)
+  /\d[\d,，]*(?:[.．]\d+)?(?:\s?(?:million|billion|trillion|万|亿))?/g,
+  // spelled-out English numbers ("twenty-five thousand", "three million")
+  new RegExp('\\b'+EN_NUMWORD+'(?:[-\\s]'+EN_NUMWORD+')*\\b','gi'),
+  // Chinese numerals: 2+ chars, or single numeral followed by a unit
+  /[零一二两三四五六七八九十百千万亿]{2,}(?:点[零一二三四五六七八九]+)?/g,
+  /[一二两三四五六七八九十](?=[年月日号亿万千百倍元块吨米克斤秒时点成])/g
+];
+function matchNumbers(text){
+  const out=[];
+  for (const re of NUM_PATTERNS){
+    re.lastIndex=0; let m;
+    while ((m=re.exec(text))!==null){
+      if (!m[0] || !m[0].trim()) continue;
+      if (ZH_BLACKLIST.has(m[0])) continue;
+      out.push({start:m.index, end:m.index+m[0].length, text:m[0], type:'num'});
+      if (m.index===re.lastIndex) re.lastIndex++;
+    }
+  }
+  return out;
+}
+
+/* =====================================================================
+   TERMINOLOGY MATCHING — longest term wins, whole term = one block
+   ===================================================================== */
+function matchTerms(text, langCode){
+  const out=[]; if (!S.terms.length) return out;
+  const isEn = langCode==='en';
+  const hay = isEn ? text.toLowerCase() : text;
+  for (const tm of S.terms){                       // S.terms is sorted longest-first
+    const needleRaw = (langCode===S.srcLang) ? tm.src : tm.tgt;
+    if (!needleRaw) continue;
+    const needle = isEn ? needleRaw.toLowerCase() : needleRaw;
+    let from=0;
+    while (true){
+      const i = hay.indexOf(needle, from);
+      if (i<0) break;
+      const end=i+needle.length;
+      // word boundaries for English terms
+      const okL = !isEn || i===0 || !/[a-z0-9]/i.test(hay[i-1]);
+      const okR = !isEn || end>=hay.length || !/[a-z0-9]/i.test(hay[end]);
+      if (okL && okR && !out.some(r=>i<r.end && end>r.start))
+        out.push({start:i, end, text:text.slice(i,end), type:'term', src:tm.src, tgt:tm.tgt});
+      from=i+1;
+    }
+  }
+  return out;
+}
+
+/* ---------- combine term + number ranges (terms take priority) ---------- */
+function findRanges(text, langCode){
+  const terms = matchTerms(text, langCode);
+  const nums  = matchNumbers(text).filter(n => !terms.some(t => n.start<t.end && n.end>t.start));
+  // dedupe/merge overlapping numbers: keep longest
+  nums.sort((a,b)=> a.start-b.start || (b.end-b.start)-(a.end-a.start));
+  const keep=[];
+  for (const n of nums) if (!keep.some(k=>n.start<k.end && n.end>k.start)) keep.push(n);
+  return terms.concat(keep).sort((a,b)=>a.start-b.start);
+}
+
+/* =====================================================================
+   SEGMENT MODEL + RENDERING
+   ASR always in the LEFT cell, MT always in the RIGHT cell.
+   Matching pairs share one grid row → always horizontally aligned.
+   ===================================================================== */
+function newSegment(opts){
+  const seg = Object.assign({
+    id: uid(),
+    timeline: S.mode==='live' ? 'live-session' : 'media',
+    status: 'partial',                // 'partial' | 'processing' | 'final'
+    srcText: '', mtText: '',
+    tStart: null, tEnd: null,         // source-segment times on the timeline
+    tFirstPartial: null, tFinal: null, tMT: null,   // display times
+    tNumDetect: null, tTermDetect: null,
+    partials: [],
+    numbers: [], terms: [], mtNumbers: [], mtTerms: [],
+    row: null, _chipsAdded: false, _dispState: null
+  }, opts||{});
+  S.segments.push(seg);
+  return seg;
+}
+
+function tokenizeGap(str, lang){
+  // split plain text into reveal tokens: words (EN) / char pairs (ZH)
+  const toks=[];
+  if (lang==='zh' && !/[a-zA-Z]{3,}/.test(str)){
+    for (let i=0;i<str.length;i+=2) toks.push(str.slice(i,i+2));
+  } else {
+    const parts = str.split(/(\s+)/);
+    for (const p of parts) if (p!=='') toks.push(p);
+  }
+  return toks;
+}
+const PHRASE_BREAK = /[,;:.!?，。；：！？、—]/;
+
+function buildSegHTML(text, lang){
+  // returns { html, numbers[], terms[], units:{word,phrase} }
+  const ranges = findRanges(text, lang);
+  let html='', pos=0, wordIdx=0, phraseIdx=0;
+  const numbers=[], terms=[];
+  const push = (tokText, cls, extra)=>{
+    html += '<'+(cls?'mark':'span')+' class="tok'+(cls?' '+cls:'')+'" data-w="'+wordIdx+'" data-p="'+phraseIdx+'"'+(extra||'')+'>'+esc(tokText)+(cls?'</mark>':'</span>');
+    wordIdx++;
+    if (PHRASE_BREAK.test(tokText)) phraseIdx++;
+  };
+  for (const r of ranges){
+    if (r.start>pos) for (const t of tokenizeGap(text.slice(pos,r.start), lang)){ if (t.trim()==='') { html+=esc(t); continue; } push(t); }
+    if (r.type==='num'){ numbers.push(r.text); push(r.text,'num'); }
+    else { terms.push({src:r.src, tgt:r.tgt, matched:r.text}); push(r.text,'term',' title="'+esc(r.src+' → '+r.tgt)+'"'); }
+    pos=r.end;
+  }
+  if (pos<text.length) for (const t of tokenizeGap(text.slice(pos), lang)){ if (t.trim()===''){ html+=esc(t); continue; } push(t); }
+  return { html, numbers, terms, units:{ word:Math.max(1,wordIdx), phrase:Math.max(1,phraseIdx+1) } };
+}
+
+function renderSeg(seg, opts){
+  opts=opts||{};
+  E.segEmpty.style.display='none';
+  if (!seg.row){
+    const row=document.createElement('div');
+    row.className='segRow'; row.id='seg-'+seg.id;
+    row.innerHTML='<div class="cell src"><span class="stamp"></span><span class="segtext"></span></div>'+
+                  '<div class="cell mt"><span class="stamp mtstamp"></span><span class="segtext"></span></div>';
+    E.segScroll.appendChild(row);
+    seg.row=row;
+  }
+  const row=seg.row;
+  row.classList.toggle('partial', seg.status!=='final');
+  const srcCell=row.children[0], mtCell=row.children[1];
+  srcCell.querySelector('.stamp').textContent = seg.tStart!=null ? fmtT(seg.tStart)+(seg.tEnd!=null?'–'+fmtT(seg.tEnd):'') : '';
+  mtCell.querySelector('.stamp').textContent = seg.mtText ? 'MT' : '';
+
+  if (seg.status!=='final'){
+    // partial: plain in-place text update (minimal jumping), highlight terms/numbers where feasible
+    const b = buildSegHTML(seg.srcText, S.srcLang);
+    srcCell.querySelector('.segtext').innerHTML = b.html || '<span style="opacity:.5">…</span>';
+    mtCell.querySelector('.segtext').innerHTML = seg.mtText ? esc(seg.mtText) : '';
+  } else {
+    const bs = buildSegHTML(seg.srcText, S.srcLang);
+    seg.numbers=bs.numbers; seg.terms=bs.terms; seg.srcUnits=bs.units;
+    srcCell.querySelector('.segtext').innerHTML = bs.html;
+    if (seg.numbers.length && seg.tNumDetect==null) seg.tNumDetect = nowT();
+    if (seg.terms.length && seg.tTermDetect==null) seg.tTermDetect = nowT();
+    if (seg.mtText){
+      const bm = buildSegHTML(seg.mtText, S.tgtLang);
+      seg.mtNumbers=bm.numbers; seg.mtTerms=bm.terms; seg.mtUnits=bm.units;
+      mtCell.querySelector('.segtext').innerHTML = bm.html;
+    } else {
+      mtCell.querySelector('.segtext').innerHTML = '<span style="opacity:.4">…</span>';
+    }
+  }
+  // recency styling
+  $$('.segRow.recent').forEach(r=>{ if(r!==row) r.classList.remove('recent'); });
+  row.classList.add('recent');
+
+  if (S.mode==='live'){
+    if (opts.revealNew && seg.status==='final') liveReveal(seg, opts.mtOnly);
+    addSupportChips(seg);
+    autoScroll();
+  }
+  refreshControls();
+}
+
+/* ---------- live incremental reveal (display only) ---------- */
+function liveReveal(seg, mtOnly){
+  const mode=S.display.incr;
+  const cells=[];
+  if (!mtOnly) cells.push(seg.row.children[0]);
+  if (seg.mtText) cells.push(seg.row.children[1]);
+  for (const cell of cells){
+    const toks = Array.from(cell.querySelectorAll('.tok'));
+    if (mode==='sentence' || !toks.length) continue;
+    const key = mode==='word' ? 'w' : 'p';
+    const units = [...new Set(toks.map(t=>t.dataset[key]))];
+    toks.forEach(t=>t.classList.add('hid'));
+    const step = mode==='word' ? 70 : 350;
+    units.forEach((u,i)=> setTimeout(()=>{
+      toks.forEach(t=>{ if(t.dataset[key]===u) t.classList.remove('hid'); });
+      if (i===units.length-1) autoScroll();
+    }, (i+1)*step));
+  }
+}
+
+/* ---------- support strip chips ---------- */
+function addSupportChips(seg){
+  if (seg._chipsAdded || seg.status!=='final') return;
+  seg._chipsAdded=true;
+  const empty=E.supportChips.querySelector('.empty'); if (empty) empty.remove();
+  const mk=(cls,txt,title)=>{
+    const key=cls+'|'+txt;
+    if (S.chipSeen.has(key) && S.chipSeen.size<400) return;   // dedupe repeats
+    S.chipSeen.add(key);
+    const el=document.createElement('span');
+    el.className='sChip '+cls; el.textContent=txt; if(title) el.title=title;
+    el.onclick=()=>{ if(seg.row){ seg.row.scrollIntoView({block:'center',behavior:'smooth'}); flashRow(seg.row); } };
+    E.supportChips.appendChild(el);
+    while (E.supportChips.children.length>60) E.supportChips.removeChild(E.supportChips.firstChild);
+    E.supportChips.scrollLeft=E.supportChips.scrollWidth;
+  };
+  seg.numbers.forEach(n=>mk('num',n,'Number detected in ASR'));
+  seg.terms.forEach(t=>mk('term',t.src+' → '+t.tgt,'Terminology match'));
+}
+function flashRow(row){
+  row.style.transition='background .5s'; row.style.background='rgba(77,163,255,.18)';
+  setTimeout(()=>{ row.style.background=''; },700);
+}
+
+/* ---------- auto-scroll ---------- */
+let userScrolledUp=false, lastAutoScroll=0;
+function autoScroll(){
+  if (!S.display.autoscroll || userScrolledUp) return;
+  lastAutoScroll=performance.now();
+  E.segScroll.scrollTop=E.segScroll.scrollHeight;
+}
+E.segScroll.addEventListener('scroll', ()=>{
+  if (performance.now()-lastAutoScroll<300) return;
+  const nearBottom = E.segScroll.scrollHeight - E.segScroll.scrollTop - E.segScroll.clientHeight < 60;
+  userScrolledUp = !nearBottom;
+  E.resumeScroll.classList.toggle('on', userScrolledUp && S.display.autoscroll);
+});
+E.resumeScroll.onclick=()=>{ userScrolledUp=false; E.resumeScroll.classList.remove('on'); autoScroll(); };
+
+/* =====================================================================
+   DISPLAY CONTROLS
+   ===================================================================== */
+function applyDisplayMode(){
+  const m=S.display.mode;
+  E.segScroll.className = (S.display.hl?'hl ':'') + 'mode-'+m;
+  // panels remain structurally present in every mode (grid columns fixed)
+}
+E.dispMode.onchange=e=>{ S.display.mode=e.target.value; applyDisplayMode(); diag('Display mode → '+e.target.value+' (panel class: '+E.segScroll.className+', rows: '+S.segments.length+')'); logEvent('display-mode',{value:e.target.value}); };
+E.incrMode.onchange=e=>{ S.display.incr=e.target.value; diag('Incremental display → '+e.target.value); logEvent('incremental-mode',{value:e.target.value}); };
+E.hlToggle.onchange=e=>{ S.display.hl=e.target.checked; applyDisplayMode(); };
+E.autoScrollToggle.onchange=e=>{ S.display.autoscroll=e.target.checked; if(e.target.checked){userScrolledUp=false; E.resumeScroll.classList.remove('on'); autoScroll();} };
+E.fontSize.oninput=e=>{ document.documentElement.style.setProperty('--font-panel', e.target.value+'px'); E.fontVal.textContent=e.target.value; };
+
+/* =====================================================================
+   TERMINOLOGY FILE HANDLING (TXT / CSV / XLS / XLSX)
+   ===================================================================== */
+function setTerms(pairs, fileName){
+  S.terms = pairs.filter(p=>p.src && p.tgt)
+                 .map(p=>({src:String(p.src).trim(), tgt:String(p.tgt).trim()}))
+                 .filter(p=>p.src && p.tgt)
+                 .sort((a,b)=>b.src.length-a.src.length);   // longest first
+  S.termFileName=fileName||null;
+  S.termMTCache={};
+  if (S.terms.length){
+    E.termTag.style.display='flex'; E.termTag.querySelector('.nm').textContent=fileName;
+    setStatus(E.termStatus, S.terms.length+' term pairs loaded. Applies to new ASR/MT output; reprocess to apply to existing output.', 'ok');
+  } else {
+    E.termTag.style.display='none';
+    setStatus(E.termStatus, fileName ? 'No valid term pairs found in the file. Check the format (source, target per line/row).' : 'No terminology loaded.', fileName?'err':'');
+  }
+  logEvent('terminology-loaded',{file:fileName, count:S.terms.length});
+}
+async function loadTermFile(file){
+  try{
+    const ext=file.name.split('.').pop().toLowerCase();
+    let pairs=[];
+    if (ext==='xls' || ext==='xlsx'){
+      await ensureSheetJS();
+      const wb=XLSX.read(await file.arrayBuffer(), {type:'array'});
+      const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1});
+      pairs=rows.map(r=>({src:r[0], tgt:r[1]}));
+    } else {
+      const txt=await file.text();
+      pairs=txt.split(/\r?\n/).map(line=>{
+        const parts=line.split(/\t|,|，|→/).map(s=>s.trim()).filter(Boolean);
+        return {src:parts[0], tgt:parts[1]};
+      });
+    }
+    // drop a header row like "source,target"
+    if (pairs.length && /^(source|src|term|术语|原文)/i.test(String(pairs[0].src||''))) pairs.shift();
+    setTerms(pairs, file.name);
+  }catch(err){
+    setStatus(E.termStatus,'Could not read that file. Please use TXT (tab/comma separated) or XLS/XLSX with two columns.','err');
+  }
+}
+let sheetJSp=null;
+function ensureSheetJS(){
+  if (window.XLSX) return Promise.resolve();
+  if (sheetJSp) return sheetJSp;
+  sheetJSp=new Promise((res,rej)=>{
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    s.onload=res; s.onerror=()=>rej(new Error('SheetJS load failed'));
+    document.head.appendChild(s);
+  });
+  return sheetJSp;
+}
+E.termDrop.onclick=()=>E.termFile.click();
+E.termFile.onchange=e=>{ if(e.target.files[0]) loadTermFile(e.target.files[0]); e.target.value=''; };
+E.termDrop.ondragover=e=>{e.preventDefault(); E.termDrop.classList.add('drag');};
+E.termDrop.ondragleave=()=>E.termDrop.classList.remove('drag');
+E.termDrop.ondrop=e=>{e.preventDefault(); E.termDrop.classList.remove('drag'); if(e.dataTransfer.files[0]) loadTermFile(e.dataTransfer.files[0]);};
+E.clearTerms.onclick=()=>setTerms([],null);
+E.sampleTerms.onclick=()=>{
+  const sample='carbon neutrality\t碳中和\nrenewable energy\t可再生能源\nsupply chain\t供应链\ngross domestic product\t国内生产总值\nartificial intelligence\t人工智能\nclimate change\t气候变化\nfree trade agreement\t自由贸易协定\nBelt and Road Initiative\t一带一路倡议\n';
+  downloadBlob(new Blob([sample],{type:'text/plain'}),'sample-terminology.txt');
+};
+
+/* =====================================================================
+   SESSION / EXPORT
+   ===================================================================== */
+function clearOutput(){
+  S.segments=[]; S.chipSeen.clear(); S.latWindow=[];
+  E.segScroll.querySelectorAll('.segRow').forEach(r=>r.remove());
+  E.segEmpty.style.display='';
+  E.segEmpty.innerHTML='No output yet.<br>Initialize the engines, then start capture (live) or upload &amp; process a file (playback).';
+  E.supportChips.innerHTML='<span class="empty">Detected numbers and terminology matches will appear here.</span>';
+  userScrolledUp=false; E.resumeScroll.classList.remove('on');
+  refreshControls();
+}
+function inputSourceType(){
+  if (S.mode==='playback') return S.media.file ? (S.media.isVideo?'uploaded video file':'uploaded audio file') : 'none';
+  return S.cap.label || E.liveSource.selectedOptions[0]?.textContent || 'microphone';
+}
+function exportMeta(){
+  return {
+    tool:'CAI Workspace', version:'1.0', exportedAt:new Date().toISOString(),
+    operatingMode:S.mode,
+    sourceLanguage:langBy(S.srcLang).name, targetLanguage:langBy(S.tgtLang).name,
+    asrEngine: S.asrEngine==='whisper' ? 'Whisper (in-browser, model: '+S.whisperModel+')'
+             : S.asrEngine==='webspeech' ? 'Web Speech API'
+             : (ASR_PROVIDERS[S.asrEngine] ? ASR_PROVIDERS[S.asrEngine].name : S.asrEngine),
+    mtEngine: MT_PROVIDERS[S.mtEngine] ? MT_PROVIDERS[S.mtEngine].name : S.mtEngine,
+    inputSourceType: inputSourceType(),
+    terminologyFile: S.termFileName ? {name:S.termFileName, termCount:S.terms.length} : 'none',
+    timelineReference: S.mode==='live'
+      ? 'live-session time: seconds since the live session clock started'
+      : 'media playback time: seconds on the uploaded media timeline',
+    subtitleDelayApplied: S.mode==='playback' ? S.media.delay+' s (fixed display offset; media timestamps below are unaffected)' : 'not applicable in live mode (real processing delay)',
+    latencyNote: 'Latency = display time minus source segment END time, in seconds. asrLatency uses the stabilized/final ASR display time; mtLatency uses the MT display time. Playback-mode segments report processing time, not display latency.'
+  };
+}
+function exportJSON(){
+  const data={ meta:exportMeta(),
+    segments:S.segments.filter(s=>s.status==='final'||s.srcText).map(s=>({
+      id:s.id, timeline:s.timeline, status:s.status,
+      sourceStart:round3(s.tStart), sourceEnd:round3(s.tEnd),
+      asrText:s.srcText, mtText:s.mtText,
+      partials:s.partials,
+      firstPartialDisplayAt:round3(s.tFirstPartial), stabilizedAsrDisplayAt:round3(s.tFinal), mtDisplayAt:round3(s.tMT),
+      numberDetectionAt:round3(s.tNumDetect), terminologyDetectionAt:round3(s.tTermDetect),
+      asrLatency: (s.tFinal!=null&&s.tEnd!=null)?round3(s.tFinal-s.tEnd):null,
+      mtLatency: (s.tMT!=null&&s.tEnd!=null)?round3(s.tMT-s.tEnd):null,
+      numbersInAsr:s.numbers, numbersInMt:s.mtNumbers,
+      termsMatched:s.terms.map(t=>t.src+' → '+t.tgt)
+    })),
+    events:S.events };
+  downloadBlob(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}),
+    'cai-session-'+tsName()+'.json');
+  logEvent('export-json');
+}
+function exportCSVfile(){
+  const head=['id','timeline','status','sourceStart','sourceEnd','asrText','mtText','firstPartialAt','stabilizedAsrAt','mtDisplayAt','asrLatency','mtLatency','numbers','terms'];
+  const q=v=> v==null?'':'"'+String(v).replace(/"/g,'""')+'"';
+  const rows=S.segments.filter(s=>s.srcText).map(s=>[
+    s.id,s.timeline,s.status,round3(s.tStart),round3(s.tEnd),s.srcText,s.mtText,
+    round3(s.tFirstPartial),round3(s.tFinal),round3(s.tMT),
+    (s.tFinal!=null&&s.tEnd!=null)?round3(s.tFinal-s.tEnd):'',
+    (s.tMT!=null&&s.tEnd!=null)?round3(s.tMT-s.tEnd):'',
+    s.numbers.join(' | '), s.terms.map(t=>t.src+'→'+t.tgt).join(' | ')
+  ].map(q).join(','));
+  downloadBlob(new Blob(['﻿'+head.join(',')+'\n'+rows.join('\n')],{type:'text/csv'}),
+    'cai-segments-'+tsName()+'.csv');
+  logEvent('export-csv');
+}
+function tsName(){ const d=new Date(); return d.toISOString().slice(0,19).replace(/[T:]/g,'-'); }
+function downloadBlob(blob,name){
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},400);
+}
+E.exportJson.onclick=exportJSON;
+E.exportCsv.onclick=exportCSVfile;
+E.clearOutput.onclick=()=>{ clearOutput(); setStatus(E.sessionStatus,'Output cleared. Language, engine and terminology settings kept.','ok'); logEvent('clear-output'); };
+E.newSession.onclick=()=>{
+  stopEverything();
+  clearOutput();
+  S.events=[]; S.sessionStart=new Date(); S.liveClock0=null;
+  setStatus(E.sessionStatus,'New session started. Settings kept.','ok');
+  logEvent('new-session');
+};
+
+/* =====================================================================
+   MODE SWITCHING + CONTROL STATES
+   ===================================================================== */
+function setMode(mode){
+  if (mode===S.mode) return;
+  stopEverything();
+  S.mode=mode;
+  E.modeLiveBtn.classList.toggle('active', mode==='live');
+  E.modePlaybackBtn.classList.toggle('active', mode==='playback');
+  E.modeBadge.className=mode; E.modeBadge.textContent= mode==='live'?'Live mode':'Playback mode';
+  E.modeExplain.textContent = mode==='live'
+    ? 'Live mode processes a real-time audio stream (microphone, input device, tab/screen audio) with the system’s actual ASR/MT delay.'
+    : 'Playback mode processes an uploaded audio/video file. ASR/MT display is synchronized to the media timeline, with an optional fixed subtitle delay to simulate live latency.';
+  E.grpLive.style.display = mode==='live'?'':'none';
+  E.grpMedia.style.display = mode==='playback'?'':'none';
+  E.grpMedia.open = mode==='playback';
+  if (mode==='playback' && S.asrEngine==='webspeech'){
+    S.asrEngine='whisper'; E.asrEngine.value='whisper'; invalidateEngines();
+    showBanner('ASR engine switched to Whisper','Playback mode transcribes uploaded files with the in-browser Whisper engine. Press “Initialize engines” to load it.','warn');
+  }
+  updateSourceArea();
+  refreshChips(); refreshControls();
+  logEvent('mode-switch',{mode});
+}
+E.modeLiveBtn.onclick=()=>setMode('live');
+E.modePlaybackBtn.onclick=()=>setMode('playback');
+
+function refreshControls(){
+  const live=S.mode==='live', cap=S.cap;
+  // capture controls
+  E.startCap.disabled = !live || cap.active;
+  E.pauseCap.disabled = !live || !cap.active || cap.paused;
+  E.resumeCap.disabled = !live || !cap.active || !cap.paused;
+  E.stopCap.disabled = !live || !cap.active;
+  E.clearLive.disabled = !live || (!S.segments.length && !cap.active);
+  // engine availability per mode
+  E.asrEngine.querySelector('[value=webspeech]').disabled = !live;
+  E.whisperModelRow.style.display = S.asrEngine==='whisper' ? '' : 'none';
+  // processing controls
+  const ready=S.ready.asr&&S.ready.mt;
+  if (live){
+    E.startProc.disabled = !ready || S.processing || !cap.active;
+    E.startProc.title = !ready?'Initialize engines first': !cap.active?'Start capture first':'';
+    E.stopProc.disabled = !S.processing;
+    E.restartProc.disabled = !ready || !cap.active;
+    E.restartProc.textContent='Restart live processing';
+  } else {
+    E.startProc.disabled = !ready || !S.media.loaded || S.media.processing || S.media.processed;
+    E.startProc.title = !ready?'Initialize engines first': !S.media.loaded?'Upload a media file first':'';
+    E.stopProc.disabled = !S.media.processing;
+    E.restartProc.disabled = !ready || !S.media.loaded || S.media.processing;
+    E.restartProc.textContent='Reprocess media';
+  }
+  E.initEngines.disabled = S.initializing;
+  // playback-only display control
+  E.delaySlider.disabled = live;
+  E.delayHint.style.opacity = live? .55 : 1;
+  E.replayBtn.disabled = !S.media.loaded;
+  // export
+  const has=S.segments.some(s=>s.srcText);
+  E.exportJson.disabled=!has; E.exportCsv.disabled=!has;
+  E.clearOutput.disabled=!has;
+}
+
+/* ---------- sidebar collapse / fullscreen ---------- */
+E.sideToggle.onclick=()=>E.app.classList.toggle('side-collapsed');
+function goFullscreen(){
+  if (document.fullscreenElement) document.exitFullscreen();
+  else $('#stage').requestFullscreen().catch(()=>showBanner('Fullscreen unavailable','Your browser blocked fullscreen. Try pressing F11 instead.','warn'));
+}
+E.fsBtn.onclick=goFullscreen; E.fsMini.onclick=goFullscreen;
+document.addEventListener('fullscreenchange',()=>{
+  const fs=!!document.fullscreenElement;
+  E.fsBtn.textContent = fs?'⛶ Exit fullscreen':'⛶ Fullscreen';
+  E.fsMini.textContent = fs?'✕ Exit (Esc)':'⛶';
+  E.fsMini.title = fs?'Exit fullscreen (or press Esc)':'Fullscreen workspace';
+});
+// double-clicking the video opens the WORKSPACE fullscreen (video + support strip + ASR/MT),
+// never the video-only native fullscreen
+E.player.addEventListener('dblclick',e=>{ e.preventDefault(); if(!document.fullscreenElement) goFullscreen(); });
+
+/* ---------- language selection ---------- */
+function populateLangs(){
+  for (const sel of [E.srcLang,E.tgtLang])
+    sel.innerHTML=LANGS.map(l=>'<option value="'+l.code+'">'+esc(l.name)+'</option>').join('');
+  E.srcLang.value=S.srcLang; E.tgtLang.value=S.tgtLang;
+  updateLangLabels();
+}
+function updateLangLabels(){
+  E.srcLangLabel.textContent=langBy(S.srcLang).name;
+  E.tgtLangLabel.textContent=langBy(S.tgtLang).name;
+  E.langHint.textContent='Interpreting direction: '+langBy(S.srcLang).name+' → '+langBy(S.tgtLang).name+'. Applies to newly processed audio; use Restart/Reprocess for existing output.';
+}
+function onLangChange(which){
+  const src=E.srcLang.value, tgt=E.tgtLang.value;
+  if (src===tgt){ // prevent invalid same-language pair by swapping the other side
+    if (which==='src') E.tgtLang.value = S.srcLang; else E.srcLang.value = S.tgtLang;
+    showBanner('Languages swapped','Source and target languages must be different, so the other side was switched automatically.','warn');
+  }
+  S.srcLang=E.srcLang.value; S.tgtLang=E.tgtLang.value;
+  updateLangLabels(); logEvent('language-change',{source:S.srcLang,target:S.tgtLang});
+}
+E.srcLang.onchange=()=>onLangChange('src');
+E.tgtLang.onchange=()=>onLangChange('tgt');
+E.swapLang.onclick=()=>{ const s=S.srcLang; E.srcLang.value=S.tgtLang; E.tgtLang.value=s; S.srcLang=E.srcLang.value; S.tgtLang=E.tgtLang.value; updateLangLabels(); logEvent('language-swap',{source:S.srcLang,target:S.tgtLang}); };
+/* =====================================================================
+   LIVE MODE — capture, metering, VAD segmentation, streaming ASR
+   ===================================================================== */
+const SR16=16000;
+
+/* ---------- input device list ---------- */
+async function listDevices(unlock){
+  try{
+    if (unlock){ // getting a throwaway stream unlocks device labels
+      try{ (await navigator.mediaDevices.getUserMedia({audio:true})).getTracks().forEach(t=>t.stop()); }catch(e){}
+    }
+    const devs=await navigator.mediaDevices.enumerateDevices();
+    const mics=devs.filter(d=>d.kind==='audioinput');
+    let html='<option value="mic:default">Microphone (system default)</option>';
+    mics.forEach((d,i)=>{ if(d.deviceId && d.deviceId!=='default')
+      html+='<option value="dev:'+esc(d.deviceId)+'">'+esc(d.label||('Audio input device '+(i+1)))+'</option>'; });
+    html+='<option value="sysaudio">Computer audio — sound playing on this computer</option>';
+    html+='<option value="display">Browser tab / screen capture (with audio)</option>';
+    const prev=E.liveSource.value;
+    E.liveSource.innerHTML=html;
+    if ([...E.liveSource.options].some(o=>o.value===prev)) E.liveSource.value=prev;
+  }catch(e){
+    E.liveSource.innerHTML='<option value="mic:default">Microphone (system default)</option><option value="sysaudio">Computer audio — sound playing on this computer</option><option value="display">Browser tab / screen capture (with audio)</option>';
+  }
+}
+E.refreshDevs.onclick=()=>listDevices(true);
+
+/* ---------- source area visibility ---------- */
+function updateSourceArea(){
+  const A=E.sourceArea;
+  E.player.style.display='none'; E.liveVideo.style.display='none';
+  E.audioBox.classList.remove('on'); E.scopeCanvas.classList.remove('on'); E.waveCanvas.classList.remove('on');
+  E.capBadge.className=''; E.mediaCtl.classList.remove('on');
+  A.classList.remove('video-mode','compact','fs-video');
+  E.srcPlaceholder.classList.add('off');
+  if (S.mode==='live'){
+    if (!S.cap.active){
+      E.srcPlaceholder.classList.remove('off');
+      E.placeholderTxt.textContent='Select a live input source and press “Start capture”. For system audio from another app, use tab/screen capture with audio — see the capture guide.';
+      A.classList.add('compact');
+    } else if (S.cap.kind==='display' && S.cap.stream.getVideoTracks().length){
+      E.liveVideo.style.display='block'; A.classList.add('video-mode','fs-video');
+      const hasA=S.cap.hasAudio;
+      E.capBadge.className='on '+(hasA?'good':'bad');
+      E.capBadgeTxt.textContent=hasA?'Audio is being captured':'No audio captured — reshare and tick “Also share tab audio”';
+    } else {
+      E.audioBox.classList.add('on'); E.scopeCanvas.classList.add('on');
+      E.audioSrcName.textContent=S.cap.label;
+    }
+  } else {
+    if (!S.media.loaded){
+      E.srcPlaceholder.classList.remove('off');
+      E.placeholderTxt.textContent='Upload a local video or audio file in the sidebar (Media file section).';
+      A.classList.add('compact');
+    } else if (S.media.isVideo){
+      E.player.style.display='block'; A.classList.add('video-mode');
+      E.mediaCtl.classList.add('on');
+    } else {
+      E.audioBox.classList.add('on'); E.waveCanvas.classList.add('on');
+      E.audioSrcName.textContent=S.media.file.name;
+      E.mediaCtl.classList.add('on');
+    }
+  }
+}
+
+/* ---------- capture ---------- */
+async function startCapture(){
+  if (S.cap.active) return;
+  const sel=E.liveSource.value;
+  hideBanner();
+  try{
+    let stream,kind,label;
+    if (sel==='display' || sel==='sysaudio'){
+      const opts = sel==='sysaudio'
+        ? { video:{displaySurface:'monitor'},          // hint the picker towards "Entire screen"
+            audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false},
+            systemAudio:'include', selfBrowserSurface:'exclude' }
+        : { video:true, audio:true };
+      stream=await navigator.mediaDevices.getDisplayMedia(opts);
+      kind= sel==='sysaudio' ? 'sysaudio' : 'display';
+      label= sel==='sysaudio' ? 'Computer audio (system sound)' : 'Tab / screen capture';
+    } else {
+      const c= sel==='mic:default' ? {audio:true} : {audio:{deviceId:{exact:sel.slice(4)}}};
+      stream=await navigator.mediaDevices.getUserMedia(c);
+      kind='mic'; label=E.liveSource.selectedOptions[0]?.textContent||'Microphone';
+    }
+    if (S.liveClock0==null) S.liveClock0=performance.now();
+    const cap=S.cap;
+    cap.stream=stream; cap.kind=kind; cap.label=label; cap.active=true; cap.paused=false;
+    cap.hasAudio=stream.getAudioTracks().length>0;
+
+    if (cap.hasAudio){
+      let ctx; try{ ctx=new AudioContext({sampleRate:SR16}); }catch(e){ ctx=new AudioContext(); }
+      cap.ctx=ctx;
+      const srcNode=ctx.createMediaStreamSource(stream);
+      cap.analyser=ctx.createAnalyser(); cap.analyser.fftSize=2048;
+      srcNode.connect(cap.analyser);
+      const proc=ctx.createScriptProcessor(4096,1,1); cap.proc=proc;
+      srcNode.connect(proc);
+      const mute=ctx.createGain(); mute.gain.value=0; proc.connect(mute); mute.connect(ctx.destination);
+      const needRs = ctx.sampleRate!==SR16;
+      proc.onaudioprocess=ev=>{
+        if (cap.paused) return;
+        const data=ev.inputBuffer.getChannelData(0);
+        let sum=0; for(let i=0;i<data.length;i+=8) sum+=data[i]*data[i];
+        if (Math.sqrt(sum/(data.length/8))>0.008) cap.lastVoice=performance.now();
+        if (S.processing && (S.asrEngine==='whisper' || isCloudASR()))
+          liveSeg.push(needRs?downsampleTo16k(data,ctx.sampleRate):data.slice(), liveT());
+      };
+    }
+    if (kind==='display' || kind==='sysaudio'){
+      const vt=stream.getVideoTracks()[0];
+      if (vt) vt.onended=()=>{ if(S.cap.active){ stopCapture(); showBanner('Capture ended','Screen/tab sharing was stopped in the browser. Start capture again when ready.','warn'); } };
+      if (kind==='display'){
+        E.liveVideo.srcObject=stream; E.liveVideo.play().catch(()=>{});
+        if (!cap.hasAudio)
+          showBanner('No audio in this capture','The shared screen/tab has no audio. On the share dialog, pick a Chrome Tab and tick “Also share tab audio”. Note: macOS cannot share full-screen audio — use tab capture or a virtual audio device (see capture guide).','warn');
+      } else if (!cap.hasAudio)
+        showBanner('No system audio captured','In the share dialog choose “Entire screen” and tick “Also share system audio”, then start capture again. On macOS, Chrome cannot capture system audio at all — use “Browser tab” capture for sound playing in a tab, or install the free BlackHole virtual audio device and select it as a microphone input (see capture guide).','warn');
+    }
+    const at=stream.getAudioTracks()[0];
+    if (at) at.onended=()=>{ if(S.cap.active){ stopCapture(); showBanner('Input disconnected','The audio input stream ended (device unplugged or permission revoked). Reconnect the device or choose another input source, then start capture again.','warn'); } };
+
+    setStatus(E.capStatus,'Capturing: '+label+(cap.hasAudio?'':' (no audio!)'), cap.hasAudio?'ok':'err');
+    diag('Capture started: '+label+' — audio track: '+(cap.hasAudio?'yes':'NO'));
+    logEvent('capture-start',{source:label});
+    updateSourceArea(); refreshChips(); refreshControls();
+    startMeterLoop();
+  }catch(err){
+    const n=err && err.name;
+    if (n==='NotAllowedError') showBanner('Permission needed','The browser blocked audio capture. Click the camera/microphone icon in the address bar, allow access, and try again. For tab capture, choose a tab and tick “Also share tab audio”.');
+    else if (n==='NotFoundError') showBanner('No input found','No audio input device was found for that selection. Plug in a device or press “Refresh devices”, or try tab/screen capture instead.');
+    else if (n==='NotReadableError') showBanner('Device busy','The audio device could not be opened (it may be in use by another app). Close other apps using it or pick a different input source.');
+    else showBanner('Capture failed', friendly(err)+' Try a different input source, or check browser audio permissions.');
+    setStatus(E.capStatus,'Capture failed.','err');
+  }
+}
+function friendly(err){ return (err && err.message ? String(err.message).slice(0,140) : 'Unknown error.'); }
+
+function pauseCapture(){
+  if (!S.cap.active||S.cap.paused) return;
+  S.cap.paused=true;
+  S.cap.stream.getAudioTracks().forEach(t=>t.enabled=false);
+  if (S.processing && S.asrEngine==='webspeech') stopWebSpeechSoft();
+  setStatus(E.capStatus,'Capture paused.','busy');
+  logEvent('capture-pause'); refreshChips(); refreshControls();
+}
+function resumeCapture(){
+  if (!S.cap.active||!S.cap.paused) return;
+  S.cap.paused=false;
+  S.cap.stream.getAudioTracks().forEach(t=>t.enabled=true);
+  if (S.processing && S.asrEngine==='webspeech') startWebSpeech();
+  setStatus(E.capStatus,'Capturing: '+S.cap.label,'ok');
+  logEvent('capture-resume'); refreshChips(); refreshControls();
+}
+function stopCapture(){
+  if (!S.cap.active) return;
+  stopLiveProcessing(true);
+  try{ S.cap.stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+  try{ S.cap.ctx && S.cap.ctx.close(); }catch(e){}
+  E.liveVideo.srcObject=null;
+  Object.assign(S.cap,{active:false,paused:false,stream:null,ctx:null,analyser:null,proc:null,kind:null,hasAudio:false});
+  liveSeg.reset();
+  setStatus(E.capStatus,'Capture stopped.');
+  logEvent('capture-stop');
+  updateSourceArea(); refreshChips(); refreshControls();
+}
+E.startCap.onclick=startCapture; E.pauseCap.onclick=pauseCapture;
+E.resumeCap.onclick=resumeCapture; E.stopCap.onclick=stopCapture;
+E.clearLive.onclick=()=>{ stopCapture(); clearOutput(); S.liveClock0=null; setStatus(E.capStatus,'Live session cleared. Settings kept.'); logEvent('clear-live-session'); };
+
+/* ---------- level meter + oscilloscope ---------- */
+let meterRAF=null;
+function startMeterLoop(){
+  cancelAnimationFrame(meterRAF);
+  const buf=new Float32Array(2048);
+  const tick=()=>{
+    if (S.cap.active && S.cap.analyser){
+      S.cap.analyser.getFloatTimeDomainData(buf);
+      let sum=0; for(let i=0;i<buf.length;i+=4) sum+=buf[i]*buf[i];
+      const rms=Math.sqrt(sum/(buf.length/4));
+      E.lvlBar.style.width=clamp(rms*550,0,100)+'%';
+      const voiced=(performance.now()-S.cap.lastVoice)<500;
+      E.inputDot.className= voiced?'on':'';
+      if (E.scopeCanvas.classList.contains('on')) drawScope(buf);
+      E.audioTime.textContent=fmtT(liveT());
+      meterRAF=requestAnimationFrame(tick);
+    } else { E.lvlBar.style.width='0%'; }
+  };
+  meterRAF=requestAnimationFrame(tick);
+}
+function drawScope(buf){
+  const c=E.scopeCanvas, g=c.getContext('2d');
+  if (c.width!==c.clientWidth) { c.width=c.clientWidth; c.height=c.clientHeight; }
+  g.clearRect(0,0,c.width,c.height);
+  g.strokeStyle='#4da3ff'; g.lineWidth=1.6; g.beginPath();
+  const mid=c.height/2;
+  for(let x=0;x<c.width;x++){
+    const v=buf[Math.floor(x/c.width*buf.length)]||0;
+    const y=mid+v*mid*1.8;
+    x===0?g.moveTo(x,y):g.lineTo(x,y);
+  }
+  g.stroke();
+}
+function downsampleTo16k(data, fromRate){
+  const ratio=fromRate/SR16, n=Math.floor(data.length/ratio), out=new Float32Array(n);
+  for (let i=0;i<n;i++) out[i]=data[Math.floor(i*ratio)]||0;
+  return out;
+}
+
+/* ---------- energy-based live segmenter (for Whisper streaming) ---------- */
+class LiveSegmenter{
+  constructor(onSeg){ this.onSeg=onSeg; this.reset(); }
+  reset(){ this.pre=[]; this.frames=[]; this.silFrames=0; this.voicedFrames=0; this.startT=0; this.noise=0.004; }
+  push(chunk,tEnd){
+    const F=320;
+    for(let i=0;i+F<=chunk.length;i+=F){
+      const fr=chunk.subarray(i,i+F);
+      let sum=0; for(let j=0;j<F;j+=2) sum+=fr[j]*fr[j];
+      this.frame(fr, Math.sqrt(sum/(F/2)), tEnd-(chunk.length-(i+F))/SR16);
+    }
+  }
+  frame(fr,rms,t){
+    const voiced= rms > Math.max(0.0055, this.noise*3.5);
+    if (!voiced) this.noise=this.noise*0.95+rms*0.05;
+    if (!this.frames.length){
+      this.pre.push(fr.slice()); if (this.pre.length>12) this.pre.shift();
+      if (voiced){ this.frames=this.pre.slice(); this.pre=[]; this.startT=t-this.frames.length*0.02; this.silFrames=0; this.voicedFrames=1; }
+      return;
+    }
+    this.frames.push(fr.slice());
+    if (voiced){ this.voicedFrames++; this.silFrames=0; } else this.silFrames++;
+    const silence=this.silFrames>=35;            // 0.7 s of trailing silence
+    const maxed=this.frames.length>=600;         // 12 s hard cap
+    if ((silence && this.voicedFrames>=15) || maxed){
+      const n= silence ? Math.max(1,this.frames.length-this.silFrames+10) : this.frames.length;
+      const audio=new Float32Array(n*320);
+      for(let k=0;k<n;k++) audio.set(this.frames[k],k*320);
+      const s=this.startT, e2=this.startT+n*0.02;
+      this.frames=[]; this.silFrames=0; this.voicedFrames=0;
+      this.onSeg(audio,s,e2);
+    } else if (silence){ this.frames=[]; this.silFrames=0; this.voicedFrames=0; } // noise blip
+  }
+}
+let cloudChain=Promise.resolve();   // sequential queue for cloud ASR in live mode
+function liveSegReady(seg, rawText){
+  const clean=cleanASR(rawText);
+  if (!clean){ if(seg.row) seg.row.remove(); S.segments=S.segments.filter(s=>s!==seg); return; }
+  seg.srcText=clean; seg.status='final'; seg.tFinal=liveT();
+  if (seg.tFirstPartial==null) seg.tFirstPartial=seg.tFinal;
+  S.latWindow.push(Math.max(0,seg.tFinal-seg.tEnd));
+  renderSeg(seg,{revealNew:true});
+  translateSeg(seg);
+}
+const liveSeg=new LiveSegmenter((audio,t0,t1)=>{
+  if (!S.processing) return;
+  const seg=newSegment({tStart:t0,tEnd:t1,status:'processing',srcText:''});
+  renderSeg(seg);
+  if (isCloudASR()){
+    cloudChain=cloudChain.then(()=>cloudTranscribe(audio)).then(res=>{ if(S.segments.includes(seg)) liveSegReady(seg,res.text); })
+      .catch(err=>{
+        if (seg.row) seg.row.remove(); S.segments=S.segments.filter(s=>s!==seg);
+        diag('Cloud ASR error: '+friendly(err),'err');
+        showBanner('Cloud ASR problem', friendly(err)+'. Check the API key in the Engines section, or switch ASR engine and re-initialize.','warn');
+      });
+  } else whisperEnqueue(audio,seg);
+});
+
+/* =====================================================================
+   WHISPER (in-browser, transformers.js) — runs in a Web Worker
+   ===================================================================== */
+const TJS_URLS=[
+  'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3',                              // official docs URL
+  'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3/dist/transformers.min.mjs',
+  'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3/dist/transformers.min.js',
+  'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.3.3/+esm',
+  'https://unpkg.com/@huggingface/transformers@3.3.3/dist/transformers.min.mjs'
+];
+const WORKER_SRC =
+"const URLS="+JSON.stringify(TJS_URLS)+";\n"+
+"let lib=null, asr=null;\n"+
+"async function loadLib(){\n"+
+"  if(lib) return lib;\n"+
+"  let errs=[];\n"+
+"  for(const u of URLS){\n"+
+"    try{ const m=await import(u); if(m&&m.pipeline){ m.env.allowLocalModels=false; lib=m; return m; } errs.push(u+': no pipeline export'); }\n"+
+"    catch(e){ errs.push(String((e&&e.message)||e).slice(0,120)); }\n"+
+"  }\n"+
+"  throw new Error('Could not load the speech library from any CDN ('+errs[errs.length-1]+')');\n"+
+"}\n"+
+"onmessage=async(e)=>{\n"+
+"  const d=e.data;\n"+
+"  try{\n"+
+"    if(d.type==='init'){\n"+
+"      const T=await loadLib();\n"+
+"      const opts={progress_callback:(p)=>{ if(p&&p.status==='progress') postMessage({type:'progress',file:p.file,progress:p.progress}); }};\n"+
+"      if(d.device==='webgpu'){ opts.device='webgpu'; opts.dtype={encoder_model:'fp32',decoder_model_merged:'q4'}; }\n"+
+"      else { opts.dtype='q8'; }\n"+
+"      asr=await T.pipeline('automatic-speech-recognition','onnx-community/whisper-'+d.model, opts);\n"+
+"      postMessage({type:'ready'});\n"+
+"    } else if(d.type==='transcribe'){\n"+
+"      const out=await asr(d.audio,{language:d.lang,task:'transcribe',return_timestamps:true});\n"+
+"      const chunks=(out&&out.chunks)?out.chunks.map(c=>({t:c.timestamp,x:c.text})):null;\n"+
+"      postMessage({type:'result',id:d.id,text:(out&&out.text?out.text:'').trim(),chunks});\n"+
+"    }\n"+
+"  }catch(err){ postMessage({type:'error',id:d.id,message:String((err&&err.message)||err)}); }\n"+
+"};\n";
+
+/* In-page fallback engine: same message interface as the worker, used when
+   the browser refuses to start a module worker (e.g. some file:// setups). */
+function createInlineWhisper(){
+  let lib=null, asr=null;
+  const shim={ onmessage:null, onerror:null, terminate(){}, postMessage(d){ handle(d); } };
+  const post=m=>{ if(shim.onmessage) shim.onmessage({data:m}); };
+  async function loadLib(){
+    if (lib) return lib;
+    let last='';
+    for (const u of TJS_URLS){
+      try{ const m=await import(u); if(m&&m.pipeline){ m.env.allowLocalModels=false; lib=m; return m; } last=u+': no pipeline export'; }
+      catch(e){ last=String((e&&e.message)||e).slice(0,120); }
+    }
+    throw new Error('Could not load the speech library from any CDN ('+last+')');
+  }
+  async function handle(d){
+    try{
+      if (d.type==='init'){
+        const T=await loadLib();
+        const opts={progress_callback:p=>{ if(p&&p.status==='progress') post({type:'progress',file:p.file,progress:p.progress}); }};
+        if (d.device==='webgpu'){ opts.device='webgpu'; opts.dtype={encoder_model:'fp32',decoder_model_merged:'q4'}; }
+        else opts.dtype='q8';
+        asr=await T.pipeline('automatic-speech-recognition','onnx-community/whisper-'+d.model,opts);
+        post({type:'ready'});
+      } else if (d.type==='transcribe'){
+        const out=await asr(d.audio,{language:d.lang,task:'transcribe',return_timestamps:true});
+        const chunks=(out&&out.chunks)?out.chunks.map(c=>({t:c.timestamp,x:c.text})):null;
+        post({type:'result',id:d.id,text:(out&&out.text?out.text:'').trim(),chunks});
+      }
+    }catch(err){ post({type:'error',id:d.id,message:String((err&&err.message)||err)}); }
+  }
+  return shim;
+}
+
+const wq={ worker:null, ready:false, busy:false, queue:[], device:null, initCb:null, progCb:null };
+const pjobs=new Map();   // promise-mode jobs (playback pipeline)
+function whisperCreate(useInline){
+  if (wq.worker){ try{wq.worker.terminate();}catch(e){} wq.worker=null; }
+  wq.ready=false; wq.busy=false; wq.queue=[]; wq.inline=!!useInline;
+  if (!useInline){
+    try{
+      const url=URL.createObjectURL(new Blob([WORKER_SRC],{type:'text/javascript'}));
+      wq.worker=new Worker(url,{type:'module'});
+    }catch(e){ wq.inline=true; }
+  }
+  if (wq.inline) wq.worker=createInlineWhisper();
+  wq.worker.onmessage=e=>{
+    const d=e.data;
+    if (d.type==='progress'){ if(wq.progCb) wq.progCb(d); }
+    else if (d.type==='ready'){ wq.ready=true; if(wq.initCb){const cb=wq.initCb; wq.initCb=null; cb(null);} whisperPump(); }
+    else if (d.type==='result'){ wq.busy=false; whisperResult(d.id,d.text,null,d.chunks); whisperPump(); }
+    else if (d.type==='error'){
+      if (!wq.ready){ if(wq.initCb){const cb=wq.initCb; wq.initCb=null; cb(new Error(d.message));} }
+      else { wq.busy=false; whisperResult(d.id,null,d.message); whisperPump(); }
+    }
+  };
+  wq.worker.onerror=e=>{
+    if (!wq.ready && wq.initCb){
+      const cb=wq.initCb; wq.initCb=null;
+      cb(new Error((e&&e.message)||'the background worker could not start in this browser'));
+    }
+  };
+}
+function whisperInit(progCb){
+  // attempt ladder: worker(GPU) → worker(WASM) → in-page(GPU) → in-page(WASM)
+  const devices=('gpu' in navigator)?['webgpu','wasm']:['wasm'];
+  const attempts=[];
+  for (const inline of [false,true]) for (const d of devices) attempts.push({inline,device:d});
+  return new Promise((resolve,reject)=>{
+    let i=-1, lastErr=null;
+    const next=()=>{
+      i++;
+      if (i>=attempts.length) return reject(lastErr||new Error('Whisper could not be initialized.'));
+      const a=attempts[i];
+      diag('Whisper init attempt: '+(a.inline?'in-page':'worker')+' / '+a.device);
+      whisperCreate(a.inline);
+      wq.device=a.device; wq.progCb=progCb;
+      wq.initCb=err=>{
+        if (!err){ diag('Whisper ready ('+(wq.inline?'in-page':'worker')+' / '+a.device+')'); return resolve(a.device+(wq.inline?'-inline':'')); }
+        diag('Whisper attempt failed: '+String(err.message).slice(0,140),'err');
+        lastErr=err; next();
+      };
+      try{ wq.worker.postMessage({type:'init', model:S.whisperModel, device:a.device}); }
+      catch(e){ wq.initCb=null; lastErr=e; next(); }
+    };
+    next();
+  });
+}
+function whisperEnqueue(audio,seg){
+  wq.queue.push({audio,seg});
+  if (wq.queue.length>6 && S.mode==='live'){ // backlog → latency warning
+    refreshChips();
+  }
+  whisperPump();
+}
+function whisperPump(){
+  if (!wq.ready||wq.busy||!wq.queue.length) return;
+  const job=wq.queue.shift(); wq.busy=true;
+  wq.worker.postMessage({type:'transcribe', id:job.seg.id, audio:job.audio, lang:langBy(S.srcLang).whisper},[job.audio.buffer]);
+}
+function cleanASR(t){
+  return (t||'').replace(/\[[^\]]*\]|\([^)]*\)|♪/g,'').replace(/\s{2,}/g,' ').trim();
+}
+function whisperResult(id,text,errMsg,chunks){
+  if (pjobs.has(id)){
+    const j=pjobs.get(id); pjobs.delete(id);
+    if (errMsg!=null && text==null) j.reject(new Error(errMsg)); else j.resolve({text:text||'', chunks:chunks||null});
+    return;
+  }
+  const seg=S.segments.find(s=>s.id===id);
+  if (!seg) return;
+  if (errMsg!=null && text==null){
+    if (seg.row) seg.row.remove();
+    S.segments=S.segments.filter(s=>s!==seg);
+    showBanner('ASR problem','Whisper could not transcribe a segment ('+String(errMsg).slice(0,90)+'). Processing continues; if it repeats, press Restart or re-initialize the engines.','warn');
+    return;
+  }
+  if (seg.timeline==='live-session') liveSegReady(seg,text);
+}
+
+/* =====================================================================
+   WEB SPEECH API (live microphone ASR with partial results)
+   ===================================================================== */
+let rec=null, curPartial=null;
+function startWebSpeech(){
+  const SRi=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if (!SRi) return;
+  rec=new SRi();
+  rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=1;
+  rec.lang=langBy(S.srcLang).bcp;
+  rec.onresult=ev=>{
+    for (let i=ev.resultIndex;i<ev.results.length;i++){
+      const res=ev.results[i], txt=(res[0].transcript||'').trim();
+      if (!txt) continue;
+      if (!res.isFinal){
+        if (!curPartial){ curPartial=newSegment({tStart:liveT()}); curPartial.tFirstPartial=liveT(); }
+        curPartial.srcText=txt; curPartial.lastPartialT=liveT();
+        if (curPartial.partials.length<80) curPartial.partials.push({t:round3(liveT()),text:txt});
+        renderSeg(curPartial);
+      } else {
+        const seg=curPartial||newSegment({tStart:liveT()});
+        curPartial=null;
+        seg.srcText=txt; seg.status='final';
+        seg.tEnd = seg.lastPartialT || liveT();   // ≈ speech end (last interim update)
+        seg.tFinal=liveT();
+        if (seg.tFirstPartial==null) seg.tFirstPartial=seg.tFinal;
+        S.latWindow.push(Math.max(0,seg.tFinal-seg.tEnd));
+        renderSeg(seg,{revealNew:true});
+        translateSeg(seg);
+      }
+    }
+  };
+  rec.onerror=ev=>{
+    if (ev.error==='no-speech'||ev.error==='aborted') return;
+    if (ev.error==='not-allowed') showBanner('Microphone blocked','Speech recognition was denied microphone access. Allow the microphone in the address-bar permissions, then press “Restart live processing”.');
+    else if (ev.error==='network') showBanner('Speech service unreachable','The browser speech service needs an internet connection. Check connectivity, or switch the ASR engine to Whisper (in-browser) and re-initialize.','warn');
+  };
+  rec.onend=()=>{
+    if (S.processing && S.cap.active && !S.cap.paused){
+      S.cap.reconnecting=true; refreshChips();
+      setTimeout(()=>{ S.cap.reconnecting=false;
+        if (S.processing && S.cap.active && !S.cap.paused){ try{rec.start();}catch(e){} }
+      },300);
+    }
+  };
+  try{ rec.start(); }catch(e){}
+}
+function stopWebSpeechSoft(){ if (rec){ try{rec.stop();}catch(e){} } }
+function stopWebSpeech(){ if (rec){ try{rec.onend=null; rec.onresult=null; rec.stop();}catch(e){} rec=null; }
+  if (curPartial){ curPartial.status='final'; curPartial.tEnd=curPartial.lastPartialT||liveT(); curPartial.tFinal=liveT();
+    if (curPartial.srcText){ renderSeg(curPartial,{revealNew:true}); translateSeg(curPartial); } else if (curPartial.row) curPartial.row.remove();
+    curPartial=null; } }
+
+/* =====================================================================
+   ENGINE CATALOGS — bring-your-own-key providers (OpenAI-compatible APIs)
+   ===================================================================== */
+const MT_PROVIDERS={
+  google:{name:'Google Translate (free endpoint)'},
+  mymemory:{name:'MyMemory (free)'},
+  hunyuan:{name:'腾讯混元 Tencent Hunyuan', base:'https://api.hunyuan.cloud.tencent.com/v1', model:'hunyuan-turbos-latest'},
+  deepseek:{name:'DeepSeek', base:'https://api.deepseek.com/v1', model:'deepseek-chat'},
+  qwen:{name:'通义千问 Qwen', base:'https://dashscope.aliyuncs.com/compatible-mode/v1', model:'qwen-plus'},
+  glm:{name:'智谱 GLM', base:'https://open.bigmodel.cn/api/paas/v4', model:'glm-4-flash'},
+  openai:{name:'OpenAI GPT', base:'https://api.openai.com/v1', model:'gpt-4o-mini'},
+  'custom-mt':{name:'Custom OpenAI-compatible MT', base:'', model:''}
+};
+const ASR_PROVIDERS={
+  'openai-asr':{name:'OpenAI Whisper API', base:'https://api.openai.com/v1', model:'whisper-1', verbose:true},
+  'groq-asr':{name:'Groq Whisper', base:'https://api.groq.com/openai/v1', model:'whisper-large-v3-turbo', verbose:true},
+  'sf-asr':{name:'SiliconFlow SenseVoice', base:'https://api.siliconflow.cn/v1', model:'FunAudioLLM/SenseVoiceSmall', verbose:false},
+  'custom-asr':{name:'Custom OpenAI-compatible ASR', base:'', model:'whisper-1', verbose:false}
+};
+const isCloudASR=()=>!!ASR_PROVIDERS[S.asrEngine];
+const isLlmMT=()=>S.mtEngine!=='google' && S.mtEngine!=='mymemory';
+
+/* key/model/base-URL config, stored only in this browser */
+const KEYS=(()=>{ try{ return JSON.parse(localStorage.getItem('cai_engine_cfg')||'{}'); }catch(e){ return {}; } })();
+function saveKeys(){ try{ localStorage.setItem('cai_engine_cfg', JSON.stringify(KEYS)); }catch(e){} }
+function cfgFor(id,prov){ const c=KEYS[id]||{}; return { key:(c.key||'').trim(), base:(c.base||prov.base||'').trim().replace(/\/+$/,''), model:(c.model||prov.model||'').trim() }; }
+function updateEngineKeyUI(){
+  const ap=ASR_PROVIDERS[S.asrEngine];
+  E.asrKeyRow.style.display= ap?'':'none';
+  if (ap){ const c=cfgFor(S.asrEngine,ap); E.asrKeyName.textContent=ap.name; E.asrKey.value=c.key; E.asrModel.value=c.model; E.asrBase.value=c.base; }
+  const mp= isLlmMT()? MT_PROVIDERS[S.mtEngine] : null;
+  E.mtKeyRow.style.display= mp?'':'none';
+  if (mp){ const c=cfgFor(S.mtEngine,mp); E.mtKeyName.textContent=mp.name; E.mtKey.value=c.key; E.mtModel.value=c.model; E.mtBase.value=c.base; }
+}
+['asrKey','asrModel','asrBase'].forEach(id=>E[id].oninput=()=>{
+  KEYS[S.asrEngine]={key:E.asrKey.value.trim(), model:E.asrModel.value.trim(), base:E.asrBase.value.trim()}; saveKeys();
+});
+['mtKey','mtModel','mtBase'].forEach(id=>E[id].oninput=()=>{
+  KEYS[S.mtEngine]={key:E.mtKey.value.trim(), model:E.mtModel.value.trim(), base:E.mtBase.value.trim()}; saveKeys();
+});
+
+/* ---------- cloud ASR (OpenAI-compatible /audio/transcriptions) ---------- */
+function f32ToWav(f32){
+  const n=f32.length, buf=new ArrayBuffer(44+n*2), v=new DataView(buf);
+  const ws=(o,s)=>{ for(let i=0;i<s.length;i++) v.setUint8(o+i,s.charCodeAt(i)); };
+  ws(0,'RIFF'); v.setUint32(4,36+n*2,true); ws(8,'WAVE'); ws(12,'fmt ');
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true);
+  v.setUint32(24,SR16,true); v.setUint32(28,SR16*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+  ws(36,'data'); v.setUint32(40,n*2,true);
+  for (let i=0;i<n;i++){ const s=Math.max(-1,Math.min(1,f32[i])); v.setInt16(44+i*2, s<0?s*0x8000:s*0x7FFF, true); }
+  return new Blob([buf],{type:'audio/wav'});
+}
+async function cloudTranscribe(audio){
+  const prov=ASR_PROVIDERS[S.asrEngine], cfg=cfgFor(S.asrEngine,prov);
+  if (!cfg.key) throw new Error('no API key set for '+prov.name+' — paste it in the Engines section');
+  if (!cfg.base) throw new Error('no base URL set for the custom ASR engine');
+  const fd=new FormData();
+  fd.append('file', f32ToWav(audio), 'audio.wav');
+  fd.append('model', cfg.model);
+  if (prov.verbose){ fd.append('response_format','verbose_json'); fd.append('language', S.srcLang); }
+  let r;
+  try{ r=await fetch(cfg.base+'/audio/transcriptions',{method:'POST', headers:{'Authorization':'Bearer '+cfg.key}, body:fd}); }
+  catch(e){ throw new Error(prov.name+' could not be reached from the browser (network problem, or the provider blocks browser/CORS requests)'); }
+  if (r.status===401||r.status===403) throw new Error(prov.name+' rejected the API key (HTTP '+r.status+')');
+  if (!r.ok) throw new Error(prov.name+' returned HTTP '+r.status);
+  const j=await r.json();
+  const chunks=(j&&j.segments&&j.segments.length)? j.segments.map(s=>({t:[s.start,s.end], x:s.text})) : null;
+  return { text:((j&&j.text)||'').trim(), chunks };
+}
+/* unified ASR dispatch for the playback pipeline */
+function asrTranscribe(audio){ return isCloudASR()? cloudTranscribe(audio) : whisperTranscribe(audio); }
+
+/* ---------- LLM-based MT (chat completions, glossary injected into prompt) ---------- */
+async function llmTranslate(text, srcCode, tgtCode, terms){
+  const prov=MT_PROVIDERS[S.mtEngine], cfg=cfgFor(S.mtEngine,prov);
+  if (!cfg.key) throw new Error('no API key set for '+prov.name+' — paste it in the Engines section');
+  if (!cfg.base) throw new Error('no base URL set for the custom MT engine');
+  let sys='You are a professional machine-translation engine assisting a simultaneous interpreter. Translate the user\'s text from '+langBy(srcCode).name+' into '+langBy(tgtCode).name+'. Output ONLY the translation, with no explanations, notes or quotation marks.';
+  if (terms && terms.length)
+    sys+=' Use these exact terminology translations (mandatory): '+terms.map(t=>t.src+' → '+t.tgt).join('; ')+'.';
+  let r;
+  try{
+    r=await fetch(cfg.base+'/chat/completions',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+cfg.key},
+      body:JSON.stringify({model:cfg.model, temperature:0.2, messages:[{role:'system',content:sys},{role:'user',content:text}]})});
+  }catch(e){ throw new Error(prov.name+' could not be reached from the browser (network problem, or the provider blocks browser/CORS requests)'); }
+  if (r.status===401||r.status===403) throw new Error(prov.name+' rejected the API key (HTTP '+r.status+')');
+  if (!r.ok) throw new Error(prov.name+' returned HTTP '+r.status);
+  const j=await r.json();
+  const out=j&&j.choices&&j.choices[0]&&j.choices[0].message&&j.choices[0].message.content;
+  if (!out) throw new Error(prov.name+' returned an empty translation');
+  return String(out).trim();
+}
+
+/* =====================================================================
+   MACHINE TRANSLATION + glossary-preferred substitution
+   ===================================================================== */
+async function mtTranslate(text, srcCode, tgtCode, terms){
+  const s=langBy(srcCode), t=langBy(tgtCode);
+  if (isLlmMT()) return llmTranslate(text, srcCode, tgtCode, terms);
+  if (S.mtEngine==='google'){
+    const r=await fetch('https://translate.googleapis.com/translate_a/single?client=gtx&sl='+s.g+'&tl='+t.g+'&dt=t&q='+encodeURIComponent(text));
+    if (!r.ok) throw new Error('translation service returned HTTP '+r.status);
+    const j=await r.json();
+    return (j[0]||[]).map(x=>x&&x[0]?x[0]:'').join('').trim();
+  } else {
+    const r=await fetch('https://api.mymemory.translated.net/get?q='+encodeURIComponent(text)+'&langpair='+encodeURIComponent(s.g+'|'+t.g));
+    if (!r.ok) throw new Error('translation service returned HTTP '+r.status);
+    const j=await r.json();
+    const tt=j&&j.responseData&&j.responseData.translatedText;
+    if (!tt) throw new Error('empty translation');
+    return String(tt).trim();
+  }
+}
+async function applyGlossary(mt, terms){
+  for (const tm of terms){
+    if (mt.includes(tm.tgt)) continue;               // already correct
+    let machine=S.termMTCache[tm.src];
+    if (machine===undefined){
+      try{ machine=await mtTranslate(tm.src,S.srcLang,S.tgtLang); }catch(e){ machine=null; }
+      S.termMTCache[tm.src]=machine;
+    }
+    if (machine && machine!==tm.tgt && mt.includes(machine))
+      mt=mt.split(machine).join(tm.tgt);             // replace MT rendering with glossary term
+    else if (!mt.includes(tm.tgt))
+      mt+=' 〔'+tm.tgt+'〕';                          // fallback: append preferred term
+  }
+  return mt;
+}
+async function translateSeg(seg){
+  try{
+    const terms=matchTerms(seg.srcText,S.srcLang);
+    let mt=await mtTranslate(seg.srcText,S.srcLang,S.tgtLang,terms);
+    mt=await applyGlossary(mt,terms);
+    seg.mtText=mt;
+    if (seg.timeline==='live-session'){ seg.tMT=liveT(); renderSeg(seg,{revealNew:true,mtOnly:true}); }
+  }catch(err){
+    showBanner('Translation problem','The MT engine could not be reached ('+friendly(err)+'). Check your internet connection or switch MT engine, then press Restart / Reprocess.','warn');
+    if (seg.timeline==='live-session') renderSeg(seg);
+  }
+}
+
+/* =====================================================================
+   ENGINE INITIALIZATION
+   ===================================================================== */
+async function initEngines(){
+  if (S.initializing) return;
+  S.initializing=true; refreshControls();
+  hideBanner();
+  diag('Initializing engines: ASR='+S.asrEngine+(S.asrEngine==='whisper'?' ('+S.whisperModel+')':'')+', MT='+S.mtEngine+', '+S.srcLang+'→'+S.tgtLang);
+  try{
+    // --- ASR ---
+    if (S.asrEngine==='webspeech'){
+      const ok=!!(window.SpeechRecognition||window.webkitSpeechRecognition);
+      if (!ok) throw new Error('This browser does not support the Web Speech API. Use Chrome or Edge, or switch the ASR engine to Whisper (in-browser).');
+      setStatus(E.initStatus,'Web Speech API available ✓ — initializing MT…','busy');
+      S.ready.asr=true;
+    } else if (isCloudASR()){
+      const prov=ASR_PROVIDERS[S.asrEngine], cfg=cfgFor(S.asrEngine,prov);
+      if (!cfg.key) throw new Error('Enter your '+prov.name+' API key in the Engines section first.');
+      if (!cfg.base) throw new Error('Enter the base URL for the custom ASR engine.');
+      setStatus(E.initStatus,'Checking '+prov.name+'…','busy');
+      try{
+        const r=await fetch(cfg.base+'/models',{headers:{'Authorization':'Bearer '+cfg.key}});
+        if (r.status===401||r.status===403) throw new Error(prov.name+' rejected the API key (HTTP '+r.status+'). Check the key.');
+        diag('Cloud ASR key check: HTTP '+r.status);
+      }catch(e){
+        if (/rejected/.test(String(e.message))) throw e;
+        diag('Cloud ASR reachability check inconclusive ('+friendly(e)+') — will verify on first audio','err');
+      }
+      S.ready.asr=true;
+    } else {
+      setStatus(E.initStatus,'Loading Whisper '+S.whisperModel+' (first time downloads the model)…','busy');
+      const dev=await whisperInit(p=>{
+        if (p.progress!=null) setStatus(E.initStatus,'Downloading Whisper '+S.whisperModel+': '+(p.file||'')+' '+Math.round(p.progress)+'%','busy');
+      });
+      S.ready.asr=true;
+      setStatus(E.initStatus,'Whisper ready ('+(dev.indexOf('webgpu')===0?'GPU accelerated':'CPU/WASM')+(dev.indexOf('-inline')>0?', in-page mode':'')+') — initializing MT…','busy');
+    }
+    // --- MT ---
+    const sample = S.srcLang==='zh' ? '你好，世界。' : 'Hello, world.';
+    await mtTranslate(sample, S.srcLang, S.tgtLang);
+    S.ready.mt=true;
+    diag('MT engine ok ('+S.mtEngine+')');
+    const asrName= S.asrEngine==='whisper' ? 'Whisper '+S.whisperModel+' (in-browser)'
+                 : S.asrEngine==='webspeech' ? 'Web Speech API' : ASR_PROVIDERS[S.asrEngine].name;
+    const mtName= MT_PROVIDERS[S.mtEngine].name;
+    setStatus(E.initStatus,'Engines ready ✓  ASR: '+asrName+' · MT: '+mtName,'ok');
+    logEvent('engines-initialized',{asr:asrName,mt:mtName});
+    if (S.mode==='live' && S.asrEngine==='webspeech' && S.cap.kind!=='mic' && S.cap.active)
+      showBanner('Engine note','Web Speech listens to your default microphone only — it cannot hear tab/screen/system audio. For those sources, switch the ASR engine to Whisper (in-browser) or a cloud ASR engine and re-initialize.','warn');
+  }catch(err){
+    S.ready.asr=false; S.ready.mt=false;
+    diag('Engine init FAILED: '+friendly(err),'err');
+    setStatus(E.initStatus,'Initialization failed: '+friendly(err),'err');
+    showBanner('Engines not ready', friendly(err)+' — Whisper needs an internet connection the first time (it downloads the model, then it is cached) and works best in Chrome or Edge. Check your connection and any firewall/ad-blocker, then press “Initialize engines” again.','warn');
+  }
+  S.initializing=false; refreshControls();
+}
+E.initEngines.onclick=initEngines;
+function invalidateEngines(){ S.ready.asr=false; S.ready.mt=false; setStatus(E.initStatus,'Engine selection changed — press “Initialize engines”.'); refreshControls(); }
+E.asrEngine.onchange=e=>{ S.asrEngine=e.target.value; updateEngineKeyUI(); invalidateEngines(); refreshControls(); };
+E.whisperModel.onchange=e=>{ S.whisperModel=e.target.value; if(S.asrEngine==='whisper') invalidateEngines(); };
+E.mtEngine.onchange=e=>{ S.mtEngine=e.target.value; S.termMTCache={}; updateEngineKeyUI(); invalidateEngines(); };
+
+/* =====================================================================
+   LIVE PROCESSING CONTROLS
+   ===================================================================== */
+function startLiveProcessing(){
+  if (S.processing || S.mode!=='live') return;
+  if (!(S.ready.asr&&S.ready.mt)){ setStatus(E.procStatus,'Initialize the engines first.','err'); return; }
+  if (!S.cap.active){ setStatus(E.procStatus,'Start capture first.','err'); return; }
+  S.processing=true;
+  liveSeg.reset();
+  if (S.asrEngine==='webspeech'){
+    if (S.cap.kind!=='mic')
+      showBanner('Heads-up','Web Speech transcribes the default microphone only. Your tab/screen audio will NOT be transcribed by it — switch ASR to Whisper (in-browser) to transcribe captured tab/system audio.','warn');
+    startWebSpeech();
+  }
+  setStatus(E.procStatus,'Processing live audio — ASR/MT appears with the real processing delay.','ok');
+  logEvent('processing-start',{engine:S.asrEngine});
+  refreshChips(); refreshControls();
+}
+function stopLiveProcessing(silent){
+  if (S.mode!=='live'||!S.processing) return;
+  S.processing=false;
+  stopWebSpeech();
+  wq.queue.forEach(j=>{                       // drop queued live segments cleanly
+    const seg=S.segments.find(s=>s.id===j.seg.id);
+    if (seg && seg.status==='processing'){ if(seg.row) seg.row.remove(); S.segments=S.segments.filter(x=>x!==seg); }
+  });
+  wq.queue.length=0;
+  if (!silent) setStatus(E.procStatus,'Processing stopped.');
+  logEvent('processing-stop');
+  refreshChips(); refreshControls();
+}
+function restartLiveProcessing(){
+  stopLiveProcessing(true);
+  setTimeout(()=>{ startLiveProcessing(); setStatus(E.procStatus,'Live processing restarted.','ok'); logEvent('processing-restart'); },150);
+}
+
+function stopEverything(){
+  if (S.mode==='live'){ stopLiveProcessing(true); stopCapture(); }
+  abortMediaProcessing();
+  try{ E.player.pause(); }catch(e){}
+}
+/* =====================================================================
+   PLAYBACK MODE — uploaded media, timeline-synchronized ASR/MT display
+   ===================================================================== */
+let mediaAbort=false;
+
+/* ---------- promise wrapper for Whisper jobs (playback pipeline) ---------- */
+function whisperTranscribe(audio){
+  return new Promise((resolve,reject)=>{
+    const fake={id:'p'+Math.random().toString(36).slice(2)};
+    pjobs.set(fake.id,{resolve,reject});
+    wq.queue.push({audio,seg:fake});
+    whisperPump();
+  });
+}
+
+/* ---------- media loading ---------- */
+function loadMediaFile(file){
+  if (S.media.url) clearMediaInternal();
+  const ext=file.name.split('.').pop().toLowerCase();
+  const isVideo=(file.type.startsWith('video')||['mp4','mov','avi','mkv','webm','m4v'].includes(ext)) && !file.type.startsWith('audio');
+  Object.assign(S.media,{file, url:URL.createObjectURL(file), isVideo, loaded:false, processed:false, pcm:null, peaks:null, duration:0});
+  warnedUnprocessed=false;
+  E.player.src=S.media.url;
+  E.mediaTag.style.display='flex'; E.mediaTag.querySelector('.nm').textContent=file.name;
+  setStatus(E.mediaStatus,'Loading media…','busy');
+  diag('Media selected: '+file.name+' ('+(Math.round(file.size/1048576*10)/10)+' MB, '+(isVideo?'video':'audio')+')');
+  logEvent('media-load',{file:file.name, size:file.size});
+}
+E.player.addEventListener('loadedmetadata',()=>{
+  if (!S.media.file) return;
+  S.media.loaded=true; S.media.duration=E.player.duration||0;
+  diag('Media loaded: '+fmtT(S.media.duration));
+  setStatus(E.mediaStatus,'Media loaded ✓ '+fmtT(S.media.duration)+' — initialize engines, then press “Start ASR + MT processing”.','ok');
+  updateSourceArea(); refreshChips(); refreshControls();
+});
+E.player.addEventListener('error',()=>{
+  if (!S.media.file || S.mode!=='playback') return;
+  diag('Media element error — browser cannot play this format','err');
+  setStatus(E.mediaStatus,'This file cannot be played by the browser.','err');
+  showBanner('Unsupported media format','The browser could not open this file (common with AVI and MKV containers). Please convert it to MP4 (video) or MP3/WAV/M4A (audio) — free tools like HandBrake or VLC can do this — then upload again.');
+});
+['play','pause','ended'].forEach(ev=>E.player.addEventListener(ev,()=>{ refreshChips(); updatePlayBtn(); logEvent('media-'+ev,{at:round3(E.player.currentTime)}); }));
+E.player.addEventListener('seeking',()=>{ S.media.seeking=true; refreshChips(); });
+E.player.addEventListener('seeked',()=>{ S.media.seeking=false; refreshChips(); logEvent('media-seek',{to:round3(E.player.currentTime)}); });
+
+function clearMediaInternal(){
+  abortMediaProcessing();
+  try{ E.player.pause(); }catch(e){}
+  if (S.media.url) URL.revokeObjectURL(S.media.url);
+  E.player.removeAttribute('src'); try{ E.player.load(); }catch(e){}
+  Object.assign(S.media,{file:null,url:null,isVideo:false,duration:0,loaded:false,processed:false,processing:false,pcm:null,peaks:null,seeking:false});
+  E.mediaTag.style.display='none';
+}
+function clearMedia(){
+  clearMediaInternal();
+  clearOutput();
+  setStatus(E.mediaStatus,'Media cleared. Language, engine, terminology and display settings kept — upload a new file when ready.');
+  updateSourceArea(); refreshChips(); refreshControls();
+  logEvent('media-clear');
+}
+E.clearMedia.onclick=clearMedia;
+E.dropZone.onclick=()=>E.mediaFile.click();
+E.mediaFile.onchange=e=>{ if(e.target.files[0]) loadMediaFile(e.target.files[0]); e.target.value=''; };
+E.dropZone.ondragover=e=>{e.preventDefault(); E.dropZone.classList.add('drag');};
+E.dropZone.ondragleave=()=>E.dropZone.classList.remove('drag');
+E.dropZone.ondrop=e=>{e.preventDefault(); E.dropZone.classList.remove('drag'); if(e.dataTransfer.files[0]) loadMediaFile(e.dataTransfer.files[0]);};
+
+/* ---------- offline decoding + VAD segmentation ---------- */
+function mixToMono16k(buf){
+  const ch=buf.numberOfChannels, n=buf.length, out=new Float32Array(n);
+  for (let c=0;c<ch;c++){ const d=buf.getChannelData(c); for(let i=0;i<n;i++) out[i]+=d[i]/ch; }
+  return buf.sampleRate===SR16 ? out : downsampleTo16k(out, buf.sampleRate);
+}
+function segmentPCM(pcm){
+  const F=320, total=Math.floor(pcm.length/F);
+  const rms=new Float32Array(total);
+  for (let f=0;f<total;f++){ let s=0; for(let j=f*F;j<(f+1)*F;j+=2) s+=pcm[j]*pcm[j]; rms[f]=Math.sqrt(s/(F/2)); }
+  const sorted=Array.from(rms).sort((a,b)=>a-b);
+  const TH=Math.max(0.006,(sorted[Math.floor(total*0.2)]||0.003)*3.5);
+  const segs=[]; let start=-1, sil=0, voiced=0;
+  for (let f=0;f<total;f++){
+    const v=rms[f]>TH;
+    if (start<0){ if(v){ start=Math.max(0,f-10); sil=0; voiced=1; } continue; }
+    if (v){voiced++; sil=0;} else sil++;
+    if ((sil>=30 && voiced>=15) || (f-start+1)>=600){           // 0.6 s silence, 12 s cap
+      const endF= sil>=30 ? f-sil+10 : f;
+      segs.push({s:start*F, e:Math.min(pcm.length,(endF+1)*F)});
+      start=-1; sil=0; voiced=0;
+    } else if (sil>=30){ start=-1; sil=0; voiced=0; }
+  }
+  if (start>=0 && voiced>=10) segs.push({s:start*F, e:pcm.length});
+  return segs.map(x=>({t0:x.s/SR16, t1:x.e/SR16, s:x.s, e:x.e}));
+}
+
+/* ---------- processing pipeline ---------- */
+function prog(p,txt){ S.media.progressPct=p; E.procProgBar.style.width=clamp(p,0,100)+'%'; E.procProgTxt.textContent=txt; }
+function abortMediaProcessing(){
+  if (!S.media.processing) return;
+  mediaAbort=true;
+  wq.queue.forEach(j=>{ const p=pjobs.get(j.seg.id); if(p){ pjobs.delete(j.seg.id); p.reject(new Error('aborted')); } });
+  wq.queue.length=0;
+}
+
+async function processMedia(){
+  if (S.mode!=='playback' || !S.media.loaded || S.media.processing) return;
+  if (!(S.ready.asr&&S.ready.mt)){ setStatus(E.procStatus,'Initialize the engines first.','err'); return; }
+  const reprocess=S.media.processed;
+  S.media.processing=true; S.media.processed=false; S.media.wasProcessed=reprocess; mediaAbort=false;
+  warnedUnprocessed=true;   // no need for the "not processed" warning any more
+  clearOutput();
+  E.segEmpty.innerHTML='Processing media — ASR/MT text appears here as each segment becomes ready.<br>You can press play now; the display follows the media timeline.';
+  E.procProgWrap.classList.add('on');
+  setStatus(E.procStatus,(reprocess?'Reprocessing':'Processing')+' media…','busy');
+  refreshChips(); refreshControls();
+  logEvent(reprocess?'media-reprocess-start':'media-process-start');
+  try{
+    let pcm=S.media.pcm;
+    if (!pcm){
+      prog(2,'Decoding audio track…');
+      const ab=await S.media.file.arrayBuffer();
+      const oc=new OfflineAudioContext(1,SR16,SR16);
+      let buf;
+      try{ buf=await oc.decodeAudioData(ab); }
+      catch(e){ throw new Error('The browser could not decode the audio in this file (common with AVI/MKV). Convert it to MP4, MP3 or WAV and upload again.'); }
+      pcm=mixToMono16k(buf);
+      if (S.media.duration<=1800) S.media.pcm=pcm;   // cache up to 30 min
+      buildWavePeaks(pcm);
+      diag('Audio decoded: '+fmtT(pcm.length/SR16)+' of usable audio');
+    }
+    prog(5,'Detecting speech segments…');
+    const chunks=segmentPCM(pcm);
+    diag('Speech detection: '+chunks.length+' segments found');
+    if (!chunks.length) throw new Error('No speech-like audio was found in this file. Try a different file or check that it has an audible speech track.');
+    for (let i=0;i<chunks.length;i++){
+      if (mediaAbort) throw {aborted:true};
+      prog(5+(i/chunks.length)*93,'Transcribing segment '+(i+1)+' / '+chunks.length+' …');
+      let res={text:'',chunks:null};
+      try{ res=await asrTranscribe(pcm.slice(chunks[i].s,chunks[i].e)); }
+      catch(e){ diag('ASR failed on segment '+(i+1)+': '+friendly(e),'err'); }
+      if (mediaAbort) throw {aborted:true};
+      // Split into sentence-level pieces using Whisper's own timestamps,
+      // so each row is one sentence anchored to when it is actually spoken.
+      const base=chunks[i].t0, segDur=chunks[i].t1-chunks[i].t0;
+      let pieces=[];
+      if (res.chunks && res.chunks.length){
+        for (const c of res.chunks){
+          const txt=cleanASR(c.x); if (!txt) continue;
+          let cs=(c.t&&c.t[0]!=null)?c.t[0]:0;
+          let ce=(c.t&&c.t[1]!=null)?c.t[1]:segDur;
+          cs=clamp(cs,0,segDur); ce=clamp(ce,cs+0.2,segDur+0.5);
+          pieces.push({t0:base+cs, t1:base+ce, text:txt});
+        }
+        // merge very short fragments into the previous sentence
+        const merged=[];
+        for (const p of pieces){
+          const last=merged[merged.length-1];
+          if (last && (p.t1-p.t0)<0.6){ last.text+=' '+p.text; last.t1=p.t1; }
+          else merged.push(p);
+        }
+        pieces=merged;
+      }
+      if (!pieces.length){
+        const txt=cleanASR(res.text);
+        if (txt) pieces=[{t0:chunks[i].t0, t1:chunks[i].t1, text:txt}];
+      }
+      diag('Seg '+(i+1)+'/'+chunks.length+' ['+fmtT(chunks[i].t0)+'–'+fmtT(chunks[i].t1)+'] → '+(pieces.length?pieces.length+' sentence(s)':'(empty — skipped)'));
+      let done=0;
+      for (const p of pieces){
+        if (mediaAbort) throw {aborted:true};
+        const seg=newSegment({timeline:'media', status:'final', srcText:p.text, tStart:p.t0, tEnd:p.t1});
+        prog(5+((i+0.5+0.5*(done++/pieces.length))/chunks.length)*93,'Translating segment '+(i+1)+' / '+chunks.length+' …');
+        try{
+          const terms=matchTerms(p.text,S.srcLang);
+          seg.mtText=await applyGlossary(await mtTranslate(p.text,S.srcLang,S.tgtLang,terms), terms);
+        }catch(e){ seg.mtText=''; diag('MT failed on a sentence of segment '+(i+1)+': '+friendly(e),'err'); }
+        renderSeg(seg);
+        seg.tNumDetect=seg.numbers.length?seg.tEnd:null;
+        seg.tTermDetect=seg.terms.length?seg.tEnd:null;
+        seg.row.classList.remove('recent','partial');
+        seg.row.classList.add('future');
+        seg.row.querySelectorAll('.tok').forEach(t=>t.classList.add('hid'));
+        seg._dispState='hidden'; seg._chipsAdded=false;
+      }
+    }
+    if (!S.segments.length) throw new Error('Nothing could be transcribed from this file. Try a clearer recording or a larger Whisper model.');
+    S.media.processed=true;
+    diag('Processing complete: '+S.segments.length+' segment rows ready');
+    prog(100,'Done — '+S.segments.length+' segments.');
+    setStatus(E.procStatus,'Processing complete ✓ '+S.segments.length+' segments. Press play — the display follows the media timeline'+(S.media.delay>0?' with a +'+S.media.delay.toFixed(1)+' s simulated delay.':'.'),'ok');
+    logEvent('media-processed',{segments:S.segments.length});
+  }catch(err){
+    if (err && err.aborted){ diag('Processing stopped by user'); setStatus(E.procStatus,'Processing stopped. Press “Start ASR + MT processing” to run it again.'); prog(0,''); }
+    else { diag('Processing FAILED: '+friendly(err),'err'); setStatus(E.procStatus,'Processing failed.','err'); showBanner('Could not process this file', friendly(err)); prog(0,''); }
+  }
+  S.media.processing=false;
+  setTimeout(()=>E.procProgWrap.classList.remove('on'),1500);
+  refreshChips(); refreshControls();
+}
+
+/* ---------- timeline-synchronized display ----------
+   Fixed subtitle delay D: every display time shifts D seconds later.
+   effT = currentMediaTime − D compared against undelayed reveal times,
+   so the offset never accumulates and media timestamps stay unchanged. */
+/* Live-ASR-realistic timing, anchored to when words are actually spoken:
+   – By word / by phrase: text streams across the sentence exactly as it is
+     being said (like live partial ASR results).
+   – Full sentence: the sentence appears when it has just been finished
+     (like a finalized ASR result).
+   – MT follows right after the sentence ends (like real MT after ASR).
+   The fixed subtitle delay then shifts everything later to add simulated
+   extra ASR/MT latency on top. */
+function mtSpread(dur){ return Math.min(1.2,Math.max(0.4,dur*0.35)); }
+function revealAsrT(seg,u,dur){
+  if (S.display.incr==='sentence') return seg.tEnd;
+  const U=S.display.incr==='word'?seg.srcUnits.word:seg.srcUnits.phrase;
+  return seg.tStart+((u+1)/U)*dur;
+}
+function revealMtT(seg,u,dur){
+  const sp=mtSpread(dur);
+  if (S.display.incr==='sentence') return seg.tEnd+sp*0.5;
+  const U=S.display.incr==='word'?(seg.mtUnits?seg.mtUnits.word:1):(seg.mtUnits?seg.mtUnits.phrase:1);
+  return seg.tEnd+((u+1)/U)*sp;
+}
+function firstRevealT(seg,dur){
+  if (S.display.incr==='sentence') return seg.tEnd;
+  const U=S.display.incr==='word'?seg.srcUnits.word:seg.srcUnits.phrase;
+  return seg.tStart+dur/U;
+}
+let recentRow=null;
+function markRecent(row){
+  if (recentRow===row) return;
+  if (recentRow) recentRow.classList.remove('recent');
+  row.classList.add('recent'); recentRow=row;
+}
+function tickCell(cell,seg,fnT,effT,isSrc){
+  const key=S.display.incr==='word'?'w':'p';
+  cell.querySelectorAll('.tok').forEach(tok=>{
+    const u=parseInt(tok.dataset[key]||'0',10);
+    tok.classList.toggle('hid', fnT(seg,u)>effT);
+  });
+}
+function updateSegDisplay(seg,effT){
+  if (!seg.row||seg.tStart==null||seg.tEnd==null) return;
+  const dur=Math.max(0.2,seg.tEnd-seg.tStart);
+  const sp=mtSpread(dur);
+  const first=firstRevealT(seg,dur);
+  const full=S.display.incr==='sentence' ? seg.tEnd+sp*0.5 : seg.tEnd+sp;
+  if (effT<first){
+    if (seg._dispState!=='hidden'){ seg.row.classList.add('future'); seg._dispState='hidden'; }
+    return;
+  }
+  const wasHidden=seg._dispState==='hidden'||seg._dispState==null;
+  if (wasHidden){ seg.row.classList.remove('future'); addSupportChips(seg); }
+  if (effT>=full){
+    if (seg._dispState!=='full'){
+      seg.row.querySelectorAll('.tok.hid').forEach(t=>t.classList.remove('hid'));
+      seg._dispState='full'; markRecent(seg.row); autoScroll();
+    }
+    return;
+  }
+  seg._dispState='tick';
+  tickCell(seg.row.children[0],seg,(s,u)=>revealAsrT(s,u,dur),effT,true);
+  tickCell(seg.row.children[1],seg,(s,u)=>revealMtT(s,u,dur),effT,false);
+  markRecent(seg.row); autoScroll();
+}
+
+/* ---------- waveform overview (audio-only playback) ---------- */
+function buildWavePeaks(pcm){
+  const N=1200, per=Math.max(1,Math.floor(pcm.length/N)), peaks=new Float32Array(N);
+  for (let i=0;i<N;i++){ let m=0; const off=i*per; for(let j=0;j<per;j+=16){ const v=Math.abs(pcm[off+j]||0); if(v>m) m=v; } peaks[i]=m; }
+  S.media.peaks=peaks;
+}
+function drawWave(){
+  const c=E.waveCanvas; if (!c.classList.contains('on')) return;
+  const g=c.getContext('2d');
+  if (c.width!==c.clientWidth){ c.width=c.clientWidth; c.height=c.clientHeight; }
+  g.clearRect(0,0,c.width,c.height);
+  const mid=c.height/2;
+  if (S.media.peaks){
+    const pk=S.media.peaks, n=pk.length;
+    for (let x=0;x<c.width;x++){
+      const v=pk[Math.floor(x/c.width*n)]||0, h=Math.max(1,v*c.height*0.92);
+      const played = S.media.duration && (x/c.width)<=(E.player.currentTime/S.media.duration);
+      g.fillStyle= played?'#4da3ff':'#2c3a58';
+      g.fillRect(x,mid-h/2,1,h);
+    }
+  } else {
+    g.fillStyle='#2c3a58'; g.fillRect(0,mid-1,c.width,2);
+    g.fillStyle='#5c6a85'; g.font='11px sans-serif';
+    g.fillText('Waveform appears after processing.',10,mid-8);
+  }
+  if (S.media.duration){
+    const x=(E.player.currentTime/S.media.duration)*c.width;
+    g.fillStyle='#ffb454'; g.fillRect(x-1,0,2,c.height);
+  }
+}
+E.waveCanvas.onclick=e=>{
+  if (!S.media.duration) return;
+  const r=E.waveCanvas.getBoundingClientRect();
+  E.player.currentTime=clamp((e.clientX-r.left)/r.width,0,1)*S.media.duration;
+};
+
+/* ---------- playback transport ---------- */
+const playPauseBtn=document.createElement('button');
+playPauseBtn.id='playPauseBtn'; playPauseBtn.textContent='▶ Play';
+E.mediaCtl.insertBefore(playPauseBtn,E.replayBtn);
+playPauseBtn.onclick=()=>{ if (E.player.paused) E.player.play(); else E.player.pause(); };
+function updatePlayBtn(){ playPauseBtn.textContent=E.player.paused?'▶ Play':'⏸ Pause'; }
+E.replayBtn.onclick=()=>{ E.player.currentTime=0; E.player.play(); logEvent('media-replay'); };
+
+/* ---------- subtitle delay (playback only) ---------- */
+E.delaySlider.oninput=e=>{
+  S.media.delay=parseFloat(e.target.value)||0;
+  E.delayVal.textContent=S.media.delay.toFixed(1);
+  refreshChips();
+  logEvent('subtitle-delay-change',{delaySeconds:S.media.delay});
+};
+
+/* ---------- processing button dispatch (both modes) ---------- */
+E.startProc.onclick=()=>{ S.mode==='live' ? startLiveProcessing() : processMedia(); };
+E.stopProc.onclick=()=>{ S.mode==='live' ? stopLiveProcessing(false) : (abortMediaProcessing(), setStatus(E.procStatus,'Stopping…','busy')); };
+E.restartProc.onclick=()=>{ S.mode==='live' ? restartLiveProcessing() : processMedia(); };
+
+/* =====================================================================
+   HELP / CAPTURE GUIDE
+   ===================================================================== */
+const HELP_CAPTURE=
+'<h3>Capturing live audio</h3>'+
+'<table><tr><th>What you want to interpret</th><th>How to capture it</th></tr>'+
+'<tr><td>Your own voice / a speaker in the room</td><td>Choose <b>Microphone</b> and start capture.</td></tr>'+
+'<tr><td>An external device (mixer, USB interface, conference receiver)</td><td>Plug it in, press <b>Refresh devices</b>, and pick it from the list.</td></tr>'+
+'<tr><td>Audio playing in another browser tab (YouTube, Zoom web, streams)</td><td>Choose <b>Browser tab / screen capture</b>, pick the tab in the dialog and tick <b>“Also share tab audio”</b>.</td></tr>'+
+'<tr><td>Anything playing on this computer (any app: media player, Zoom, Teams…)</td><td>Choose <b>Computer audio</b>. In the share dialog pick <b>“Entire screen”</b> and tick <b>“Also share system audio”</b>. Works on <b>Windows and ChromeOS</b>. On <b>macOS</b>, Chrome cannot capture system audio (an OS restriction, not a bug of this tool): use tab capture for browser sound, or install the free <b>BlackHole</b> virtual audio device (VB-CABLE on Windows also works), route the app’s output to it, and select it here as a microphone input.</td></tr></table>'+
+'<p style="margin-top:8px">The level meter and “Input detected” dot show whether audio is actually arriving. For tab/screen capture, a badge on the preview confirms whether audio is being captured.</p>'+
+'<h3>Important engine note</h3>'+
+'<p><b>Web Speech API</b> always listens to the <i>default microphone</i> — it cannot hear tab/screen/system audio. To transcribe captured tab or routed system audio, use the <b>Whisper (in-browser)</b> ASR engine.</p>';
+const HELP_FULL=
+'<h3>Two operating modes</h3>'+
+'<p><b>Live mode</b> processes a continuous real-time audio stream; ASR/MT appears with the system’s <i>actual</i> processing delay (no artificial delay control). <b>Playback mode</b> processes an uploaded audio/video file; ASR/MT display is synchronized to the media timeline, and you can add a <b>fixed subtitle delay</b> (e.g. 2 s shifts every caption 2 s later — it never accumulates) to simulate live ASR/MT latency while practising.</p>'+
+'<h3>Typical workflow</h3>'+
+'<ul><li>Pick source language (what is spoken) and target language (your support text).</li>'+
+'<li><b>Live:</b> choose an input source → Initialize engines → Start capture → Start processing → speak/stream.</li>'+
+'<li><b>Playback:</b> upload a file → Initialize engines → Start processing → play, seek, replay; adjust subtitle delay as needed. You can press play while processing is still running — text appears as each segment becomes ready, already synchronized to the timeline. In-browser transcription takes a while (often comparable to the media length on CPU; much faster with GPU or the “tiny” model).</li>'+
+'<li>Optionally load a terminology list at any point (applies to newly processed output; use Restart/Reprocess for existing output).</li></ul>'+
+HELP_CAPTURE+
+'<h3>Engines</h3>'+
+'<p><b>Free ASR:</b> Whisper (in-browser) runs locally — the first initialization downloads the model (tiny ≈ 50 MB, base ≈ 80 MB, small ≈ 250 MB), then it is cached; it works for every input source and for files. Web Speech API (Chrome/Edge) is fast and light but microphone-only. <b>API-key ASR:</b> OpenAI Whisper API (platform.openai.com), Groq Whisper (console.groq.com — free tier, very fast), SiliconFlow SenseVoice (siliconflow.cn — strong Chinese), or any custom OpenAI-compatible transcription endpoint. These work for all input sources and files, with no model download.</p>'+
+'<p><b>Free MT:</b> Google Translate endpoint and MyMemory. <b>API-key MT (LLM-based):</b> 腾讯混元 Hunyuan (console.cloud.tencent.com/hunyuan), DeepSeek (platform.deepseek.com), 通义千问 Qwen (bailian.console.aliyun.com), 智谱 GLM (bigmodel.cn), OpenAI GPT, or any custom OpenAI-compatible endpoint. With LLM engines your terminology list is injected into the translation prompt as mandatory term translations — stronger glossary enforcement than post-editing. API keys are stored only in this browser and sent only to the chosen provider; if a provider blocks browser (CORS) requests, initialization will say so — DeepSeek, OpenAI and Groq are the most reliable from a browser.</p>'+
+'<h3>Terminology file format</h3>'+
+'<p>TXT: one pair per line — <code>source term[Tab or comma]target term</code>. XLS/XLSX: column A = source term, column B = target term. Longer terms take priority over shorter overlapping ones; matched terms are highlighted as one block, and the glossary translation is preferred in MT output where possible.</p>'+
+'<h3>Display</h3>'+
+'<p>ASR is always the left panel, MT the right; matching pairs stay horizontally aligned and keep their size in every display mode (ASR only, MT only, numbers only, terminology only, numbers + terminology). In playback mode each row is one sentence, timed with Whisper’s own timestamps: <b>By word</b> (default) streams the text while the sentence is being spoken — closest to real live ASR; <b>Full sentence</b> shows each sentence the moment it is finished, like a finalized ASR result; MT follows just after. The incremental display setting changes only how text appears, not the logged timestamps. Pause auto-scroll simply by scrolling up; press “Resume auto-scroll” to follow again. Press <span class="kbd">Esc</span> to leave fullscreen.</p>'+
+'<h3>Exported logs</h3>'+
+'<p>JSON/CSV exports include languages, engines, input source, operating mode, terminology status, per-segment timestamps (live-session time in live mode, media time in playback mode), partial vs. finalized ASR, MT text, detected numbers/terms, latency (display time − segment end), and whether a simulated subtitle delay was applied.</p>';
+function openModal(title,html){ E.modalTitle.textContent=title; E.modalBody.innerHTML=html; E.modalBack.classList.add('on'); }
+E.modalClose.onclick=()=>E.modalBack.classList.remove('on');
+E.modalBack.onclick=e=>{ if(e.target===E.modalBack) E.modalBack.classList.remove('on'); };
+E.helpBtn.onclick=()=>openModal('Help & documentation',HELP_FULL);
+E.captureGuideBtn.onclick=()=>openModal('Live capture guide',HELP_CAPTURE);
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') E.modalBack.classList.remove('on'); });
+
+/* =====================================================================
+   MAIN LOOP + BOOT
+   ===================================================================== */
+let warnedUnprocessed=false;
+function maybeWarnUnprocessed(){
+  if (warnedUnprocessed || E.player.paused || S.media.processed || S.media.processing) return;
+  warnedUnprocessed=true;
+  showBanner('No ASR/MT yet — the file has not been processed',
+    (S.ready.asr&&S.ready.mt ? '' : 'Press “Initialize engines” in the sidebar, then ')+
+    'press “Start ASR + MT processing”. Text appears segment by segment while processing runs, synchronized to the video/audio timeline — you can keep playing meanwhile.','warn');
+}
+let lastBeat=0, syncErrLogged=false;
+function mainLoop(){
+  try{
+    if (S.mode==='playback' && S.media.loaded){
+      if (S.media.processed || S.media.processing){    // progressive: sync already-ready segments during processing
+        const effT=E.player.currentTime - S.media.delay;   // fixed offset, never accumulates
+        for (const seg of S.segments){
+          try{ updateSegDisplay(seg,effT); }
+          catch(e){ console.error('CAI display sync:',e); if(!syncErrLogged){ syncErrLogged=true; diag('Display sync error: '+friendly(e),'err'); } }
+        }
+        if (!E.player.paused && performance.now()-lastBeat>5000){
+          lastBeat=performance.now();
+          const vis=S.segments.filter(s=>s._dispState && s._dispState!=='hidden').length;
+          diag('Sync heartbeat: media '+fmtT(E.player.currentTime)+', delay '+S.media.delay.toFixed(1)+' s, showing '+vis+'/'+S.segments.length+' segments');
+        }
+      }
+      if (!S.media.isVideo){
+        drawWave();
+        E.audioTime.textContent=fmtT(E.player.currentTime)+' / '+fmtT(S.media.duration);
+      }
+      maybeWarnUnprocessed();
+    }
+  }catch(e){ console.error('CAI main loop:',e); }
+  requestAnimationFrame(mainLoop);
+}
+(function boot(){
+  diag('Tool loaded — build 2026-07-03f');
+  populateLangs();
+  listDevices(false);
+  updateEngineKeyUI();
+  E.grpMedia.style.display='none';
+  updateSourceArea();
+  refreshChips(); refreshControls();
+  setStatus(E.sessionStatus,'Session started '+S.sessionStart.toLocaleTimeString());
+  if (!navigator.mediaDevices) showBanner('Limited environment','This browser cannot capture audio (no secure context?). Playback mode still works. For live capture, open the file in Chrome or Edge.','warn');
+  mainLoop();
+})();
+</script>
+</body>
+</html>
