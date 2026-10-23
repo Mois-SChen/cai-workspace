@@ -307,6 +307,7 @@ summary .ico{width:16px; text-align:center; color:var(--accent); font-size:12px}
       <select id="mtEngine">
         <option value="google">Google Translate (free)</option>
         <option value="mymemory">MyMemory (free)</option>
+        <option value="hunyuan-lite">腾讯混元 Lite — FREE model (one-time free API key)</option>
         <option value="hunyuan">腾讯混元 Tencent Hunyuan — API key</option>
         <option value="deepseek">DeepSeek — API key</option>
         <option value="qwen">通义千问 Qwen — API key</option>
@@ -1627,6 +1628,7 @@ function stopWebSpeech(){ if (rec){ try{rec.onend=null; rec.onresult=null; rec.s
 const MT_PROVIDERS={
   google:{name:'Google Translate (free endpoint)'},
   mymemory:{name:'MyMemory (free)'},
+  'hunyuan-lite':{name:'腾讯混元 Lite (hunyuan-lite, free model)', base:'https://api.hunyuan.cloud.tencent.com/v1', model:'hunyuan-lite'},
   hunyuan:{name:'腾讯混元 Tencent Hunyuan', base:'https://api.hunyuan.cloud.tencent.com/v1', model:'hunyuan-turbos-latest'},
   deepseek:{name:'DeepSeek', base:'https://api.deepseek.com/v1', model:'deepseek-chat'},
   qwen:{name:'通义千问 Qwen', base:'https://dashscope.aliyuncs.com/compatible-mode/v1', model:'qwen-plus'},
@@ -2214,7 +2216,7 @@ const HELP_FULL=
 HELP_CAPTURE+
 '<h3>Engines</h3>'+
 '<p><b>Free ASR:</b> Whisper (in-browser) runs locally — the first initialization downloads the model (tiny ≈ 50 MB, base ≈ 80 MB, small ≈ 250 MB), then it is cached; it works for every input source and for files. Web Speech API (Chrome/Edge) is fast and light but microphone-only. <b>API-key ASR:</b> OpenAI Whisper API (platform.openai.com), Groq Whisper (console.groq.com — free tier, very fast), SiliconFlow SenseVoice (siliconflow.cn — strong Chinese), or any custom OpenAI-compatible transcription endpoint. These work for all input sources and files, with no model download.</p>'+
-'<p><b>Free MT:</b> Google Translate endpoint and MyMemory. <b>API-key MT (LLM-based):</b> 腾讯混元 Hunyuan (console.cloud.tencent.com/hunyuan), DeepSeek (platform.deepseek.com), 通义千问 Qwen (bailian.console.aliyun.com), 智谱 GLM (bigmodel.cn), OpenAI GPT, or any custom OpenAI-compatible endpoint. With LLM engines your terminology list is injected into the translation prompt as mandatory term translations — stronger glossary enforcement than post-editing. API keys are stored only in this browser and sent only to the chosen provider; if a provider blocks browser (CORS) requests, initialization will say so — DeepSeek, OpenAI and Groq are the most reliable from a browser.</p>'+
+'<p><b>Free MT:</b> Google Translate endpoint and MyMemory (no key at all). <b>腾讯混元 Lite</b> is a free Hunyuan model: usage costs nothing, but Tencent still requires an API key — create one for free at console.cloud.tencent.com/hunyuan (API Key 管理 → 创建), paste it once and it is remembered by this browser. <b>API-key MT (LLM-based):</b> 腾讯混元 Hunyuan (console.cloud.tencent.com/hunyuan), DeepSeek (platform.deepseek.com), 通义千问 Qwen (bailian.console.aliyun.com), 智谱 GLM (bigmodel.cn), OpenAI GPT, or any custom OpenAI-compatible endpoint. With LLM engines your terminology list is injected into the translation prompt as mandatory term translations — stronger glossary enforcement than post-editing. API keys are stored only in this browser and sent only to the chosen provider; if a provider blocks browser (CORS) requests, initialization will say so — DeepSeek, OpenAI and Groq are the most reliable from a browser.</p>'+
 '<h3>Terminology file format</h3>'+
 '<p>TXT: one pair per line — <code>source term[Tab or comma]target term</code>. XLS/XLSX: column A = source term, column B = target term. Longer terms take priority over shorter overlapping ones; matched terms are highlighted as one block, and the glossary translation is preferred in MT output where possible.</p>'+
 '<h3>Display</h3>'+
@@ -2265,7 +2267,7 @@ function mainLoop(){
   requestAnimationFrame(mainLoop);
 }
 (function boot(){
-  diag('Tool loaded — build 2026-07-03f');
+  diag('Tool loaded — build 2026-07-03g');
   populateLangs();
   listDevices(false);
   updateEngineKeyUI();
